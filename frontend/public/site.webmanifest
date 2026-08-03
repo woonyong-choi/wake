@@ -1,0 +1,16 @@
+{
+  "name": "Opsia",
+  "short_name": "Opsia",
+  "description": "Evidence-preserving Kubernetes recovery control plane.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0d0b",
+  "theme_color": "#0a0d0b",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
