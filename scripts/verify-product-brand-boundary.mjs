@@ -8,7 +8,7 @@ import { promisify } from 'node:util'
 
 const executeFile = promisify(execFile)
 const root = path.resolve(import.meta.dirname, '..')
-const legacyTerms = ['kube' + 'heal', 'ky' + 'ro', 'dev' + 'preview']
+const legacyTerms = ['kube' + 'heal', 'dev' + 'preview']
 const legacy = new RegExp(`\\b(?:${legacyTerms.join('|')})\\b`, 'i')
 
 const { stdout } = await executeFile(

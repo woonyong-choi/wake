@@ -110,7 +110,7 @@ make doctor
 | Draft PR | [`github_provider.py`](src/services/gitops/scm-worker/github_provider.py) | base advance·Draft enforcement tests |
 | 사후 검증 | [`recovery_verification.py`](src/domains/rca/recovery_verification.py), [`rca-feedback-worker`](src/services/ai/rca-feedback-worker/app.py) | stale window·baseline·recovery tests |
 
-구현 순서와 실패 조건을 코드 단위로 설명한 문서는 [학습 아카이브](docs/LEARNING-ARCHIVE.md)를 참고한다. 전체 이벤트 계약과 안전장치는 [Golden Path](docs/GOLDEN-PATH.md), 현재 실행 구조는 [Project Map](docs/PROJECT-MAP.md)에 정리했다.
+앞으로의 정리 순서와 Java 포팅 인수 조건은 [Python 선행 정리 계획](docs/PYTHON-FIRST-PLAN.md)을 기준으로 한다. 현재 이벤트 계약과 안전장치는 [Golden Path](docs/GOLDEN-PATH.md), 정리 전 실행 구조는 [Project Map](docs/PROJECT-MAP.md)에 정리했다.
 
 ## 검증 결과
 

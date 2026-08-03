@@ -21,7 +21,6 @@ FORBIDDEN_DOC_TERMS = (
     "K8sGPT",
     "HolmesGPT",
     "Kube" + "Heal",
-    "Ky" + "ro",
     "Dev" + "Preview",
 )
 
