@@ -103,7 +103,7 @@ def _declared(
 
 def _deployment(replicas: int, *, release_note: str | None = None) -> str:
     annotation = (
-        f"  annotations:\n    demo.opsia.dev/release-note: {release_note}\n"
+        f"  annotations:\n    demo.kyro.dev/release-note: {release_note}\n"
         if release_note is not None
         else ""
     )
@@ -245,7 +245,7 @@ def test_unrelated_descendant_change_creates_pr_from_current_base(provider_modul
     )
     assert "replicas: 2" in patched_source
     assert "replicas: 1" not in patched_source
-    assert "demo.opsia.dev/release-note: unrelated-change" in patched_source
+    assert "demo.kyro.dev/release-note: unrelated-change" in patched_source
 
 
 def test_advanced_base_with_changed_target_scalar_fails_closed(provider_module) -> None:
@@ -455,7 +455,7 @@ spec:
     assert contents[0][0] == SOURCE_PATH
     assert "replicas: 2" in contents[0][1]
     assert service in contents[0][1]
-    assert "demo.opsia.dev/release-note: unrelated-change" in contents[0][1]
+    assert "demo.kyro.dev/release-note: unrelated-change" in contents[0][1]
 
 
 def test_advanced_base_with_changed_declared_source_fails_closed(provider_module) -> None:

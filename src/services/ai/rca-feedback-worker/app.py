@@ -338,12 +338,12 @@ async def on_recovery_safe_pr_created(
     original_evidence = original_evidence if isinstance(original_evidence, dict) else {}
     collected_failure_ratio, collected_failure_ratio_identity = metric_sample_with_identity(
         original_evidence,
-        "opsia_sli_failure_ratio",
+        "kyro_sli_failure_ratio",
         target,
     )
     collected_request_rate, collected_request_rate_identity = metric_sample_with_identity(
         original_evidence,
-        "opsia_sli_request_rate",
+        "kyro_sli_request_rate",
         target,
     )
     failure_ratio_before = finite_float(params.get("verification_failure_ratio_before"))
@@ -396,7 +396,7 @@ async def on_recovery_safe_pr_created(
         missing_prerequisites.extend(
             [
                 "metadata:current_workload_snapshots",
-                "metrics:opsia_continuity_active_sessions",
+                "metrics:kyro_continuity_active_sessions",
             ]
         )
     approved_alert_before = mapping(params.get("verification_alert_before"))
@@ -453,13 +453,13 @@ async def on_recovery_safe_pr_created(
             registration_settings.get("evidence_interval_seconds")
         )
     if failure_ratio_before is None:
-        missing_prerequisites.append("metrics:opsia_sli_failure_ratio")
+        missing_prerequisites.append("metrics:kyro_sli_failure_ratio")
     if not failure_ratio_identity:
-        missing_prerequisites.append("metrics:opsia_sli_failure_ratio_identity")
+        missing_prerequisites.append("metrics:kyro_sli_failure_ratio_identity")
     if request_rate_baseline is None or request_rate_baseline <= 0:
-        missing_prerequisites.append("metrics:opsia_sli_request_rate")
+        missing_prerequisites.append("metrics:kyro_sli_request_rate")
     if not request_rate_identity:
-        missing_prerequisites.append("metrics:opsia_sli_request_rate_identity")
+        missing_prerequisites.append("metrics:kyro_sli_request_rate_identity")
     threshold = finite_float(before.get("threshold"))
     if before.get("available") is not True or threshold is None:
         missing_prerequisites.append("alertmanager:original_exact_alert")

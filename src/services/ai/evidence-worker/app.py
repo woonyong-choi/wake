@@ -215,7 +215,7 @@ def standard_sli_result_identities(
     metrics: JsonObject,
 ) -> list[SliIdentity]:
     results = metrics.get("results")
-    result = results.get("opsia_sli_failure_ratio") if isinstance(results, dict) else None
+    result = results.get("kyro_sli_failure_ratio") if isinstance(results, dict) else None
     if not isinstance(result, dict):
         return []
     identities: list[SliIdentity] = []
@@ -379,17 +379,17 @@ def standard_sli_identity(metrics: JsonObject) -> SliIdentity | None:
         labels = alert.get("labels")
         if not isinstance(labels, dict):
             continue
-        if str(labels.get("alertname") or "") != "OpsiaSliFailureRatioHigh":
+        if str(labels.get("alertname") or "") != "KyroSliFailureRatioHigh":
             continue
         values = tuple(
             str(labels.get(key) or "").strip()
             for key in (
-                "opsia_namespace",
-                "opsia_resource_kind",
-                "opsia_resource_name",
-                "opsia_service",
-                "opsia_sli",
-                "opsia_symptom",
+                "kyro_namespace",
+                "kyro_resource_kind",
+                "kyro_resource_name",
+                "kyro_service",
+                "kyro_sli",
+                "kyro_symptom",
             )
         )
         if all(values):
@@ -412,7 +412,7 @@ def payload_matches_sli_identity(
 ) -> bool:
     metrics = payload.get("metrics")
     results = metrics.get("results") if isinstance(metrics, dict) else None
-    result = results.get("opsia_sli_failure_ratio") if isinstance(results, dict) else None
+    result = results.get("kyro_sli_failure_ratio") if isinstance(results, dict) else None
     if not isinstance(result, dict):
         return False
     for sample in metric_samples(result):

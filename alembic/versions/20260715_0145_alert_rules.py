@@ -1,10 +1,10 @@
-"""Add Opsia-owned alert rules.
+"""Add Kyro-owned alert rules.
 
 Revision ID: 20260715_0145
 Revises: 20260714_0200
 Create Date: 2026-07-15 01:45:00
 
-These rules are stored in the Opsia database. They are not Kubernetes
+These rules are stored in the Kyro database. They are not Kubernetes
 ``PrometheusRule`` resources and never enter the GitOps writer path.
 """
 

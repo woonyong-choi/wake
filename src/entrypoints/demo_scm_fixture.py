@@ -53,8 +53,8 @@ class DemoScmRepository:
                 shutil.rmtree(self.path)
             self.path.mkdir(parents=True)
             self._run("init", "--initial-branch=main")
-            self._run("config", "user.name", "Opsia Demo SCM")
-            self._run("config", "user.email", "demo-scm@opsia.local")
+            self._run("config", "user.name", "Kyro Demo SCM")
+            self._run("config", "user.email", "demo-scm@kyro.local")
             for relative, content in files.items():
                 target = self._target(relative)
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -68,7 +68,7 @@ class DemoScmRepository:
         with self._lock:
             if (self.path / ".git").is_dir():
                 return
-            self.reset({"README.md": "# Opsia demo repository\n"})
+            self.reset({"README.md": "# Kyro demo repository\n"})
 
     def branch_sha(self, branch: str) -> str:
         with self._lock:
@@ -301,7 +301,7 @@ def create_app(
 ) -> FastAPI:
     if len({token, admin_token, reviewer_token}) != 3:
         raise ValueError("writer, admin, and reviewer tokens must differ")
-    app = FastAPI(title="Opsia demo SCM fixture", docs_url=None, redoc_url=None)
+    app = FastAPI(title="Kyro demo SCM fixture", docs_url=None, redoc_url=None)
 
     def authorize(request: Request) -> None:
         supplied = request.headers.get("authorization", "")
@@ -499,11 +499,11 @@ def main() -> None:
     if not reviewer_token:
         raise RuntimeError(f"{DEMO_SCM_REVIEWER_TOKEN_ENV} is required")
     repository = DemoScmRepository(
-        Path(os.environ.get(DEMO_SCM_REPOSITORY_ENV, "/tmp/opsia-demo-repository")),
-        repo_ref=os.environ.get(DEMO_SCM_REPO_REF_ENV, "opsia/demo"),
+        Path(os.environ.get(DEMO_SCM_REPOSITORY_ENV, "/tmp/kyro-demo-repository")),
+        repo_ref=os.environ.get(DEMO_SCM_REPO_REF_ENV, "kyro/demo"),
         public_url=os.environ.get(
             DEMO_SCM_PUBLIC_URL_ENV,
-            "http://opsia-demo-scm.opsia-system.svc:8080",
+            "http://kyro-demo-scm.kyro-system.svc:8080",
         ),
     )
     repository.ensure_initialized()

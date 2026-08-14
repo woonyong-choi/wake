@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/opsia/opsia
+  repository: ghcr.io/kyro/kyro
   tag: ""
   pullPolicy: IfNotPresent
 
@@ -9,7 +9,7 @@ controller:
 
 console:
   image:
-    repository: ghcr.io/opsia/opsia-console
+    repository: ghcr.io/kyro/kyro-console
     tag: ""
     pullPolicy: IfNotPresent
   resources: {}
@@ -17,8 +17,8 @@ console:
 postgresql:
   image: postgres:17-alpine
   auth:
-    database: opsia
-    username: opsia
+    database: kyro
+    username: kyro
     password: ""
   persistence:
     enabled: true
@@ -27,12 +27,12 @@ postgresql:
   resources: {}
 
 agent:
-  clusterId: opsia-self
+  clusterId: kyro-self
   token: ""
   resources: {}
 
 initialAdmin:
-  email: admin@opsia.local
+  email: admin@kyro.local
   password: ""
 
 llm:

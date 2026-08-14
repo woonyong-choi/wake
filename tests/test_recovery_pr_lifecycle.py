@@ -108,8 +108,8 @@ def approved_params() -> dict[str, object]:
         "verification_alert_before": {
             "available": True,
             "alert_event_id": "alert-1",
-            "rule_id": "opsia-sli",
-            "rule_name": "OpsiaSliFailureRatioHigh",
+            "rule_id": "kyro-sli",
+            "rule_name": "KyroSliFailureRatioHigh",
             "source": "alertmanager",
             "subject_key": "sandbox:Deployment:api-server",
             "series_identity": {
@@ -177,7 +177,7 @@ def created_pr() -> SafePrCreatedBody:
         patch_sha256="patch-sha",
         pr_number=42,
         pr_node_id="PR_node_42",
-        head_ref="opsia/recovery-plan-1",
+        head_ref="kyro/recovery-plan-1",
         head_sha=HEAD_SHA,
     )
 
@@ -263,15 +263,15 @@ class SafePrDb:
         limit: int,
     ) -> list[dict[str, Any]]:
         assert workspace_id == "workspace-1"
-        assert rule_name == "OpsiaSliFailureRatioHigh"
+        assert rule_name == "KyroSliFailureRatioHigh"
         assert source == "alertmanager"
         assert set(incident_ids or ()) == {"correlation-1", "incident-1"}
         assert limit == 10
         return [
             {
                 "event_id": "alert-1",
-                "rule_id": "opsia-sli",
-                "rule_name": "OpsiaSliFailureRatioHigh",
+                "rule_id": "kyro-sli",
+                "rule_name": "KyroSliFailureRatioHigh",
                 "source": "alertmanager",
                 "subject_key": "sandbox:Deployment:api-server",
                 "series_identity": {
@@ -320,13 +320,13 @@ class SafePrDb:
             "window_start": NOW.isoformat(),
             "metrics": {
                 "results": {
-                    "opsia_sli_failure_ratio": {
+                    "kyro_sli_failure_ratio": {
                         "samples": [{"metric": labels, "value": 0.8}]
                     },
-                    "opsia_sli_request_rate": {
+                    "kyro_sli_request_rate": {
                         "samples": [{"metric": labels, "value": 40.0}]
                     },
-                    "opsia_continuity_active_sessions": {
+                    "kyro_continuity_active_sessions": {
                         "samples": [
                             {
                                 "metric": {
@@ -361,10 +361,10 @@ class SafePrDb:
                             "unavailable_replicas": 0,
                         },
                         "deployment_labels": {
-                            "opsia.dev/recovery-continuity": "protected",
+                            "kyro.dev/recovery-continuity": "protected",
                         },
                         "pod_template_labels": {
-                            "opsia.dev/recovery-continuity": "protected",
+                            "kyro.dev/recovery-continuity": "protected",
                         },
                         "pod_statuses": [
                             {
@@ -424,7 +424,7 @@ def test_real_draft_pr_route_enters_pr_open_with_immutable_identity() -> None:
         "url": evt.pr_url,
         "number": 42,
         "node_id": "PR_node_42",
-        "head_ref": "opsia/recovery-plan-1",
+        "head_ref": "kyro/recovery-plan-1",
         "head_sha": HEAD_SHA,
         "repo_ref": evt.repo_ref,
         "repository_id": evt.repository_id,
@@ -535,7 +535,7 @@ def tracked_record(
                     "url": created_pr().pr_url,
                     "number": 42,
                     "node_id": "PR_node_42",
-                    "head_ref": "opsia/recovery-plan-1",
+                    "head_ref": "kyro/recovery-plan-1",
                     "head_sha": HEAD_SHA,
                     "repo_ref": created_pr().repo_ref,
                     "repository_id": "repo-1",
@@ -585,7 +585,7 @@ def merged_webhook(
             "merged": action == "closed" if merged is None else merged,
             "merge_commit_sha": MERGE_SHA,
             "head": {
-                "ref": "opsia/recovery-plan-1",
+                "ref": "kyro/recovery-plan-1",
                 "sha": head_sha,
             },
             "base": {"ref": "main"},

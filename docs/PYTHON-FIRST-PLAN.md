@@ -260,7 +260,7 @@ handoff/
 | `src/domains/alert/` | 외부 alert identity | Analyzer input 문서 반영 후 |
 | `src/domains/target/` | cluster identity와 enrollment field | protocol 문서 반영 후 |
 | `alembic/`, `alembic.ini` | 최종 schema field 목록 | JSON schema 확정 후 |
-| `charts/opsia/` | read-only RBAC | `handoff/rbac` 생성 후 |
+| `charts/kyro/` | read-only RBAC | `handoff/rbac` 생성 후 |
 | `src/entrypoints/app.py` | active service list | CLI entrypoint 전환 후 |
 | `src/entrypoints/bootstrap*.py` | bootstrap requirement | Python DB 제거 후 |
 

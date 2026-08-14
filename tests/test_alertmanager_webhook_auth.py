@@ -252,19 +252,19 @@ def standard_sli_payload(
     annotations: dict[str, str] | None = None,
 ) -> AlertmanagerWebhookRequest:
     return AlertmanagerWebhookRequest(
-        receiver="opsia-rca",
+        receiver="kyro-rca",
         status="firing",
         alerts=[
             AlertmanagerAlert(
                 status="firing",
                 labels={
-                    "alertname": "OpsiaSliFailureRatioHigh",
+                    "alertname": "KyroSliFailureRatioHigh",
                     **labels,
                 },
                 annotations=(
                     {
-                        "opsia_observed_value": "0.79",
-                        "opsia_threshold": "0.2",
+                        "kyro_observed_value": "0.79",
+                        "kyro_threshold": "0.2",
                     }
                     if annotations is None
                     else annotations
@@ -281,12 +281,12 @@ def test_standard_sli_alert_requires_complete_resource_identity() -> None:
     validate_alertmanager_sli_labels(
         standard_sli_payload(
             {
-                "opsia_namespace": "sandbox",
-                "opsia_resource_kind": "Deployment",
-                "opsia_resource_name": "checkout-api",
-                "opsia_service": "checkout",
-                "opsia_sli": "admission",
-                "opsia_symptom": "admission_failure",
+                "kyro_namespace": "sandbox",
+                "kyro_resource_kind": "Deployment",
+                "kyro_resource_name": "checkout-api",
+                "kyro_service": "checkout",
+                "kyro_sli": "admission",
+                "kyro_symptom": "admission_failure",
             }
         )
     )
@@ -304,12 +304,12 @@ def test_alertmanager_webhook_starts_new_occurrence_for_closed_lineage(
         alertmanager_webhook(
             standard_sli_payload(
                 {
-                    "opsia_namespace": "sandbox",
-                    "opsia_resource_kind": "Deployment",
-                    "opsia_resource_name": "api-server",
-                    "opsia_service": "api-server",
-                    "opsia_sli": "admission",
-                    "opsia_symptom": "admission_failure",
+                    "kyro_namespace": "sandbox",
+                    "kyro_resource_kind": "Deployment",
+                    "kyro_resource_name": "api-server",
+                    "kyro_service": "api-server",
+                    "kyro_sli": "admission",
+                    "kyro_symptom": "admission_failure",
                 }
             ),
             webhook_request("Bearer global-webhook-token"),
@@ -337,12 +337,12 @@ def test_alertmanager_webhook_deduplicates_live_lineage(
         alertmanager_webhook(
             standard_sli_payload(
                 {
-                    "opsia_namespace": "sandbox",
-                    "opsia_resource_kind": "Deployment",
-                    "opsia_resource_name": "api-server",
-                    "opsia_service": "api-server",
-                    "opsia_sli": "admission",
-                    "opsia_symptom": "admission_failure",
+                    "kyro_namespace": "sandbox",
+                    "kyro_resource_kind": "Deployment",
+                    "kyro_resource_name": "api-server",
+                    "kyro_service": "api-server",
+                    "kyro_sli": "admission",
+                    "kyro_symptom": "admission_failure",
                 }
             ),
             webhook_request("Bearer global-webhook-token"),
@@ -370,12 +370,12 @@ def test_new_alert_start_creates_a_new_attempt_under_the_unresolved_pin(
         alertmanager_webhook(
             standard_sli_payload(
                 {
-                    "opsia_namespace": "sandbox",
-                    "opsia_resource_kind": "Deployment",
-                    "opsia_resource_name": "api-server",
-                    "opsia_service": "api-server",
-                    "opsia_sli": "admission",
-                    "opsia_symptom": "admission_failure",
+                    "kyro_namespace": "sandbox",
+                    "kyro_resource_kind": "Deployment",
+                    "kyro_resource_name": "api-server",
+                    "kyro_service": "api-server",
+                    "kyro_sli": "admission",
+                    "kyro_symptom": "admission_failure",
                 }
             ),
             webhook_request("Bearer global-webhook-token"),
@@ -395,24 +395,24 @@ def test_new_alert_start_creates_a_new_attempt_under_the_unresolved_pin(
 @pytest.mark.parametrize(
     "missing_label",
     (
-        "opsia_namespace",
-        "opsia_resource_kind",
-        "opsia_resource_name",
-        "opsia_service",
-        "opsia_sli",
-        "opsia_symptom",
+        "kyro_namespace",
+        "kyro_resource_kind",
+        "kyro_resource_name",
+        "kyro_service",
+        "kyro_sli",
+        "kyro_symptom",
     ),
 )
 def test_standard_sli_alert_rejects_blank_resource_identity(
     missing_label: str,
 ) -> None:
     labels = {
-        "opsia_namespace": "sandbox",
-        "opsia_resource_kind": "Deployment",
-        "opsia_resource_name": "checkout-api",
-        "opsia_service": "checkout",
-        "opsia_sli": "admission",
-        "opsia_symptom": "admission_failure",
+        "kyro_namespace": "sandbox",
+        "kyro_resource_kind": "Deployment",
+        "kyro_resource_name": "checkout-api",
+        "kyro_service": "checkout",
+        "kyro_sli": "admission",
+        "kyro_symptom": "admission_failure",
     }
     labels[missing_label] = ""
 
@@ -427,23 +427,23 @@ def test_standard_sli_alert_rejects_blank_resource_identity(
     "annotations",
     (
         {},
-        {"opsia_observed_value": "not-a-number", "opsia_threshold": "0.2"},
-        {"opsia_observed_value": "0.8", "opsia_threshold": ""},
-        {"opsia_observed_value": "nan", "opsia_threshold": "0.2"},
-        {"opsia_observed_value": "1.1", "opsia_threshold": "0.2"},
-        {"opsia_observed_value": "0.1", "opsia_threshold": "0.2"},
+        {"kyro_observed_value": "not-a-number", "kyro_threshold": "0.2"},
+        {"kyro_observed_value": "0.8", "kyro_threshold": ""},
+        {"kyro_observed_value": "nan", "kyro_threshold": "0.2"},
+        {"kyro_observed_value": "1.1", "kyro_threshold": "0.2"},
+        {"kyro_observed_value": "0.1", "kyro_threshold": "0.2"},
     ),
 )
 def test_standard_sli_alert_rejects_missing_or_unbounded_measurements(
     annotations: dict[str, str],
 ) -> None:
     labels = {
-        "opsia_namespace": "sandbox",
-        "opsia_resource_kind": "Deployment",
-        "opsia_resource_name": "checkout-api",
-        "opsia_service": "checkout",
-        "opsia_sli": "admission",
-        "opsia_symptom": "admission_failure",
+        "kyro_namespace": "sandbox",
+        "kyro_resource_kind": "Deployment",
+        "kyro_resource_name": "checkout-api",
+        "kyro_service": "checkout",
+        "kyro_sli": "admission",
+        "kyro_symptom": "admission_failure",
     }
 
     with pytest.raises(HTTPException) as exc:

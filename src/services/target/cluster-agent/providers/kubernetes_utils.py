@@ -30,7 +30,7 @@ SENSITIVE_METADATA_TOKENS = (
 DEFAULT_SAFE_METADATA_LABEL_LIMIT = 12
 DEFAULT_SAFE_METADATA_LABEL_VALUE_LENGTH = 120
 PREFERRED_METADATA_LABEL_KEYS = (
-    "opsia.dev/recovery-continuity",
+    "kyro.dev/recovery-continuity",
     "app",
     "app.kubernetes.io/name",
     "app.kubernetes.io/instance",

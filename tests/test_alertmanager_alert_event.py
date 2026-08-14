@@ -77,22 +77,22 @@ def test_alertmanager_resolved_updates_same_event_identity() -> None:
     assert event["resolved_at"] == datetime(2026, 7, 23, 5, 2, tzinfo=UTC)
 
 
-def test_standard_sli_alert_uses_opsia_workload_identity() -> None:
+def test_standard_sli_alert_uses_kyro_workload_identity() -> None:
     alert = AlertmanagerAlert(
         status="firing",
         labels={
-            "alertname": "OpsiaSliFailureRatioHigh",
+            "alertname": "KyroSliFailureRatioHigh",
             "severity": "warning",
-            "opsia_namespace": "sandbox",
-            "opsia_resource_kind": "Deployment",
-            "opsia_resource_name": "api-server",
-            "opsia_service": "checkout",
-            "opsia_sli": "admission",
-            "opsia_symptom": "admission_failure",
+            "kyro_namespace": "sandbox",
+            "kyro_resource_kind": "Deployment",
+            "kyro_resource_name": "api-server",
+            "kyro_service": "checkout",
+            "kyro_sli": "admission",
+            "kyro_symptom": "admission_failure",
         },
         annotations={
-            "opsia_observed_value": "0.79",
-            "opsia_threshold": "0.2",
+            "kyro_observed_value": "0.79",
+            "kyro_threshold": "0.2",
         },
         startsAt="2026-07-24T01:00:00Z",
         fingerprint="standard-sli",

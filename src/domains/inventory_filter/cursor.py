@@ -49,7 +49,7 @@ class FilterCursorCodec:
             raise ValueError("cursor signing key must contain at least 32 bytes")
         if ttl_seconds < 1:
             raise ValueError("cursor ttl must be positive")
-        self._key = hmac.new(key, b"opsia:inventory-filter-cursor:v1", hashlib.sha256).digest()
+        self._key = hmac.new(key, b"kyro:inventory-filter-cursor:v1", hashlib.sha256).digest()
         self._ttl_seconds = ttl_seconds
         self._now = now
 

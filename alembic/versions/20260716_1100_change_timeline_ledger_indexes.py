@@ -30,7 +30,7 @@ def _preflight_offline_invalid_indexes() -> None:
         return
     names = ", ".join(f"'{name}'" for name in CONCURRENT_INDEXES)
     op.execute(
-        "DO $opsia$ "
+        "DO $kyro$ "
         "DECLARE invalid_indexes TEXT; "
         "BEGIN "
         "SELECT string_agg(relation.relname, ', ' ORDER BY relation.relname) "
@@ -47,7 +47,7 @@ def _preflight_offline_invalid_indexes() -> None:
         "RAISE EXCEPTION 'invalid concurrent index remnant: %; "
         "run the migration online to clean it safely', invalid_indexes; "
         "END IF; "
-        "END $opsia$"
+        "END $kyro$"
     )
 
 

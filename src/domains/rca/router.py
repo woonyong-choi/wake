@@ -268,14 +268,14 @@ ALERTMANAGER_SOURCE_ID = "alertmanager-webhook"
 ALERTMANAGER_REOPEN_DISPOSITIONS = frozenset({"orphan", "terminal"})
 WEBHOOK_TOKEN_INVALID = "invalid webhook token"
 CLUSTER_NOT_REGISTERED = "cluster is not registered"
-STANDARD_SLI_ALERT_NAME = "OpsiaSliFailureRatioHigh"
+STANDARD_SLI_ALERT_NAME = "KyroSliFailureRatioHigh"
 STANDARD_SLI_REQUIRED_LABELS = (
-    "opsia_namespace",
-    "opsia_resource_kind",
-    "opsia_resource_name",
-    "opsia_service",
-    "opsia_sli",
-    "opsia_symptom",
+    "kyro_namespace",
+    "kyro_resource_kind",
+    "kyro_resource_name",
+    "kyro_service",
+    "kyro_sli",
+    "kyro_symptom",
 )
 STANDARD_SLI_LABELS_INVALID = "standard SLI alert is missing required resource labels"
 STANDARD_SLI_MEASUREMENT_INVALID = (
@@ -347,7 +347,7 @@ def standard_sli_measurements(
         return None
     annotations = alert.annotations if isinstance(alert.annotations, dict) else {}
     values: list[float] = []
-    for key in ("opsia_observed_value", "opsia_threshold"):
+    for key in ("kyro_observed_value", "kyro_threshold"):
         raw = annotations.get(key)
         try:
             value = float(raw)
@@ -381,7 +381,7 @@ def alertmanager_kubernetes_hint(payload: AlertmanagerWebhookRequest) -> dict[st
 
     incident 분류는 "명시 > 유도 > unknown" 계약(pipeline/symptom.py)을 따르는데,
     Alertmanager evidence 는 kubernetes snapshot 이 없어 종전에는 항상 unknown 으로
-    빠져 원인 룰에 도달하지 못했다. 알림 룰이 선언한 opsia_* 라벨(관측 대상)과
+    빠져 원인 룰에 도달하지 못했다. 알림 룰이 선언한 kyro_* 라벨(관측 대상)과
     alertname 은 Prometheus 가 실제로 평가한 관측 결과이므로, 합성이 아니라
     수신한 계약 데이터의 승격이다. 힌트가 없으면 alertname 만 symptom 으로 쓴다.
     """
@@ -395,18 +395,18 @@ def alertmanager_kubernetes_hint(payload: AlertmanagerWebhookRequest) -> dict[st
     def text(value: object) -> str:
         return str(value or "").strip()
 
-    symptom = text(annotations.get("opsia_symptom")) or text(labels.get("opsia_symptom")) or text(
+    symptom = text(annotations.get("kyro_symptom")) or text(labels.get("kyro_symptom")) or text(
         labels.get("alertname")
     )
     hint: dict[str, Any] = {}
     if symptom:
         hint["symptom"] = symptom
-    resource_name = text(labels.get("opsia_resource_name"))
+    resource_name = text(labels.get("kyro_resource_name"))
     if resource_name:
         hint["resource"] = {
-            "kind": text(labels.get("opsia_resource_kind")) or "Deployment",
+            "kind": text(labels.get("kyro_resource_kind")) or "Deployment",
             "name": resource_name,
-            "namespace": text(labels.get("opsia_namespace")) or text(labels.get("namespace"))
+            "namespace": text(labels.get("kyro_namespace")) or text(labels.get("namespace"))
             or None,
         }
     severity = text(labels.get("severity"))
@@ -477,11 +477,11 @@ def build_alertmanager_alert_event(
     annotations = {str(key): str(value) for key, value in alert.annotations.items()}
     alert_name = (labels.get("alertname") or "External alert")[:120]
     namespace = (
-        labels.get("opsia_namespace") or labels.get("namespace") or ""
+        labels.get("kyro_namespace") or labels.get("namespace") or ""
     ).strip()[:253] or None
-    if labels.get("opsia_resource_name"):
-        kind = labels.get("opsia_resource_kind") or "Workload"
-        name = labels["opsia_resource_name"]
+    if labels.get("kyro_resource_name"):
+        kind = labels.get("kyro_resource_kind") or "Workload"
+        name = labels["kyro_resource_name"]
     elif labels.get("pod"):
         kind, name = "Pod", labels["pod"]
     elif labels.get("deployment"):
@@ -525,12 +525,12 @@ def build_alertmanager_alert_event(
     series_identity = (
         standard_sli_series_identity(
             {
-                "namespace": labels.get("opsia_namespace"),
-                "resource_kind": labels.get("opsia_resource_kind"),
-                "resource_name": labels.get("opsia_resource_name"),
-                "service": labels.get("opsia_service"),
-                "sli": labels.get("opsia_sli"),
-                "symptom": labels.get("opsia_symptom"),
+                "namespace": labels.get("kyro_namespace"),
+                "resource_kind": labels.get("kyro_resource_kind"),
+                "resource_name": labels.get("kyro_resource_name"),
+                "service": labels.get("kyro_service"),
+                "sli": labels.get("kyro_sli"),
+                "symptom": labels.get("kyro_symptom"),
             }
         )
         if alert_name == STANDARD_SLI_ALERT_NAME

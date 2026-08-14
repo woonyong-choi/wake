@@ -1,6 +1,6 @@
 {
-  "name": "Opsia",
-  "short_name": "Opsia",
+  "name": "Kyro",
+  "short_name": "Kyro",
   "description": "Evidence-preserving Kubernetes recovery control plane.",
   "start_url": "/",
   "display": "standalone",

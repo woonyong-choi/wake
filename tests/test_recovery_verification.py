@@ -51,8 +51,8 @@ def lifecycle() -> dict[str, object]:
             "before": {
                 "available": True,
                 "alert_event_id": "alert-original",
-                "rule_id": "opsia-sli",
-                "rule_name": "OpsiaSliFailureRatioHigh",
+                "rule_id": "kyro-sli",
+                "rule_name": "KyroSliFailureRatioHigh",
                 "source": "alertmanager",
                 "subject_key": "sandbox:Deployment:api-server",
                 "series_identity": ALERT_SERIES_IDENTITY,
@@ -96,8 +96,8 @@ def alert(
 ) -> dict[str, object]:
     return {
         "event_id": event_id,
-        "rule_id": "opsia-sli",
-        "rule_name": "OpsiaSliFailureRatioHigh",
+        "rule_id": "kyro-sli",
+        "rule_name": "KyroSliFailureRatioHigh",
         "source": "alertmanager",
         "subject_key": "sandbox:Deployment:api-server",
         "series_identity": ALERT_SERIES_IDENTITY,
@@ -289,10 +289,10 @@ def evidence(
                     "unavailable_replicas": 0,
                 },
                 "deployment_labels": {
-                    "opsia.dev/recovery-continuity": "protected",
+                    "kyro.dev/recovery-continuity": "protected",
                 },
                 "pod_template_labels": {
-                    "opsia.dev/recovery-continuity": "protected",
+                    "kyro.dev/recovery-continuity": "protected",
                 },
                 "pod_statuses": [
                     {
@@ -310,13 +310,13 @@ def evidence(
         "window_start": observed_at.isoformat(),
         "metrics": {
             "results": {
-                "opsia_sli_failure_ratio": {
+                "kyro_sli_failure_ratio": {
                     "samples": [{"metric": labels, "value": failure_ratio}]
                 },
-                "opsia_sli_request_rate": {
+                "kyro_sli_request_rate": {
                     "samples": [{"metric": labels, "value": request_rate}]
                 },
-                "opsia_continuity_active_sessions": {
+                "kyro_continuity_active_sessions": {
                     "samples": [
                         {
                             "metric": {
@@ -543,7 +543,7 @@ def test_missing_metric_or_unready_rollout_resets_health() -> None:
     assert isinstance(metrics, dict)
     results = metrics["results"]
     assert isinstance(results, dict)
-    results.pop("opsia_sli_request_rate")
+    results.pop("kyro_sli_request_rate")
     missing = apply_decision(durable, offset_seconds=60, sample=without_rate)
     unready = apply_decision(
         durable,
@@ -584,7 +584,7 @@ def test_same_workload_but_different_sli_series_cannot_verify_recovery() -> None
 def test_standard_sli_ignores_raw_pod_series_and_uses_recorded_aggregate() -> None:
     durable = lifecycle()
     sample = evidence(0)
-    failure_samples = sample["metrics"]["results"]["opsia_sli_failure_ratio"][  # type: ignore[index]
+    failure_samples = sample["metrics"]["results"]["kyro_sli_failure_ratio"][  # type: ignore[index]
         "samples"
     ]
     assert isinstance(failure_samples, list)
@@ -605,7 +605,7 @@ def test_standard_sli_ignores_raw_pod_series_and_uses_recorded_aggregate() -> No
 def test_standard_sli_accepts_exact_record_name_label() -> None:
     durable = lifecycle()
     sample = evidence(0)
-    for metric_name in ("opsia_sli_failure_ratio", "opsia_sli_request_rate"):
+    for metric_name in ("kyro_sli_failure_ratio", "kyro_sli_request_rate"):
         samples = sample["metrics"]["results"][metric_name]["samples"]  # type: ignore[index]
         assert isinstance(samples, list)
         assert isinstance(samples[0], dict)
@@ -725,12 +725,12 @@ def test_missing_duplicate_lower_or_pod_mismatched_session_series_fail_closed() 
     assert isinstance(missing_results, dict)
     missing_metric_results = missing_results["results"]
     assert isinstance(missing_metric_results, dict)
-    missing_metric_results.pop("opsia_continuity_active_sessions")
+    missing_metric_results.pop("kyro_continuity_active_sessions")
     variants.append(missing)
 
     duplicate = deepcopy(evidence(0))
     duplicate_samples = duplicate["metrics"]["results"][  # type: ignore[index]
-        "opsia_continuity_active_sessions"
+        "kyro_continuity_active_sessions"
     ]["samples"]
     assert isinstance(duplicate_samples, list)
     duplicate_samples.append(deepcopy(duplicate_samples[0]))
@@ -738,7 +738,7 @@ def test_missing_duplicate_lower_or_pod_mismatched_session_series_fail_closed() 
 
     lower = deepcopy(evidence(0))
     lower_samples = lower["metrics"]["results"][  # type: ignore[index]
-        "opsia_continuity_active_sessions"
+        "kyro_continuity_active_sessions"
     ]["samples"]
     assert isinstance(lower_samples, list)
     assert isinstance(lower_samples[0], dict)
@@ -747,7 +747,7 @@ def test_missing_duplicate_lower_or_pod_mismatched_session_series_fail_closed() 
 
     mismatched = deepcopy(evidence(0))
     mismatched_samples = mismatched["metrics"]["results"][  # type: ignore[index]
-        "opsia_continuity_active_sessions"
+        "kyro_continuity_active_sessions"
     ]["samples"]
     assert isinstance(mismatched_samples, list)
     assert isinstance(mismatched_samples[0], dict)
@@ -758,7 +758,7 @@ def test_missing_duplicate_lower_or_pod_mismatched_session_series_fail_closed() 
 
     duplicate_continuity_id = deepcopy(evidence(0))
     duplicate_continuity_samples = duplicate_continuity_id["metrics"]["results"][  # type: ignore[index]
-        "opsia_continuity_active_sessions"
+        "kyro_continuity_active_sessions"
     ]["samples"]
     assert isinstance(duplicate_continuity_samples, list)
     assert isinstance(duplicate_continuity_samples[0], dict)
@@ -772,7 +772,7 @@ def test_missing_duplicate_lower_or_pod_mismatched_session_series_fail_closed() 
 
     stale = deepcopy(evidence(0))
     stale_samples = stale["metrics"]["results"][  # type: ignore[index]
-        "opsia_continuity_active_sessions"
+        "kyro_continuity_active_sessions"
     ]["samples"]
     assert isinstance(stale_samples, list)
     assert isinstance(stale_samples[0], dict)
@@ -781,7 +781,7 @@ def test_missing_duplicate_lower_or_pod_mismatched_session_series_fail_closed() 
 
     overflow = deepcopy(evidence(0))
     overflow_samples = overflow["metrics"]["results"][  # type: ignore[index]
-        "opsia_continuity_active_sessions"
+        "kyro_continuity_active_sessions"
     ]["samples"]
     assert isinstance(overflow_samples, list)
     assert isinstance(overflow_samples[0], dict)
@@ -804,7 +804,7 @@ def test_equal_fresh_session_sample_is_accepted_between_prometheus_scrapes() -> 
     apply_decision(durable, offset_seconds=0)
     replay = evidence(30)
     samples = replay["metrics"]["results"][  # type: ignore[index]
-        "opsia_continuity_active_sessions"
+        "kyro_continuity_active_sessions"
     ]["samples"]
     assert isinstance(samples, list)
     for sample in samples:
@@ -831,7 +831,7 @@ def test_eight_second_windows_complete_with_fifteen_second_scrapes() -> None:
     for offset in range(0, 305, 8):
         sample = evidence(offset)
         samples = sample["metrics"]["results"][  # type: ignore[index]
-            "opsia_continuity_active_sessions"
+            "kyro_continuity_active_sessions"
         ]["samples"]
         assert isinstance(samples, list)
         scraped_at = START + timedelta(seconds=(offset // 15) * 15)

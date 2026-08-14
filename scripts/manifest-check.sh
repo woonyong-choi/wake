@@ -5,11 +5,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
-RENDERED_MANIFEST="${TMP_DIR}/opsia.yaml"
+RENDERED_MANIFEST="${TMP_DIR}/kyro.yaml"
 
-helm lint "${ROOT_DIR}/charts/opsia"
-helm template opsia "${ROOT_DIR}/charts/opsia" \
-  --namespace opsia-system \
+helm lint "${ROOT_DIR}/charts/kyro"
+helm template kyro "${ROOT_DIR}/charts/kyro" \
+  --namespace kyro-system \
   --set image.tag=local \
   --set console.image.tag=local \
   --set postgresql.auth.password=manifest-check \

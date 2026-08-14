@@ -41,7 +41,7 @@ def test_alert_event_query_scopes_recovery_lookup_before_limit() -> None:
 
     rows = repository.list_alert_events(
         "workspace-1",
-        rule_name="OpsiaSliFailureRatioHigh",
+        rule_name="KyroSliFailureRatioHigh",
         source="alertmanager",
         incident_ids=("incident-1", "correlation-1", "incident-1"),
         limit=10,
@@ -56,7 +56,7 @@ def test_alert_event_query_scopes_recovery_lookup_before_limit() -> None:
         )
     )
     assert "alert_events.workspace_id = 'workspace-1'" in sql
-    assert "alert_events.rule_name = 'OpsiaSliFailureRatioHigh'" in sql
+    assert "alert_events.rule_name = 'KyroSliFailureRatioHigh'" in sql
     assert "alert_events.source = 'alertmanager'" in sql
     assert "alert_events.incident_id IN ('correlation-1', 'incident-1')" in sql
     assert "LIMIT 10" in sql
@@ -81,7 +81,7 @@ def test_alert_event_query_scopes_original_and_refire_series() -> None:
     repository.list_alert_events(
         "workspace-1",
         from_time=datetime(2026, 7, 24, 1, tzinfo=UTC),
-        rule_name="OpsiaSliFailureRatioHigh",
+        rule_name="KyroSliFailureRatioHigh",
         source="alertmanager",
         event_ids=("alert-original",),
         subject_key="sandbox:Deployment:api-server",

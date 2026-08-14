@@ -25,11 +25,11 @@ def bootstrap() -> None:
     email = normalize_email(os.environ["AUTH_EMAIL"])
     password = os.environ["AUTH_PASSWORD"]
     agent_token = os.environ["OSS_AGENT_TOKEN"]
-    cluster_id = os.environ.get("OSS_AGENT_CLUSTER_ID", "opsia-self").strip()
+    cluster_id = os.environ.get("OSS_AGENT_CLUSTER_ID", "kyro-self").strip()
     if not password or not agent_token or not cluster_id:
         raise ValueError("OSS bootstrap credentials and cluster id must be non-empty")
 
-    user_id = "user-" + str(uuid.uuid5(uuid.NAMESPACE_URL, f"opsia:{email}"))
+    user_id = "user-" + str(uuid.uuid5(uuid.NAMESPACE_URL, f"kyro:{email}"))
     db = Database()
     db.init()
     db.upsert_admin_account(
@@ -43,7 +43,7 @@ def bootstrap() -> None:
             "workspace_id": DEFAULT_WORKSPACE_ID,
             "user_id": user_id,
             "cluster_id": cluster_id,
-            "name": "Opsia self cluster",
+            "name": "Kyro self cluster",
             "environment": "oss",
             "status": "registered",
             "agent_token_hash": hash_agent_token(agent_token),

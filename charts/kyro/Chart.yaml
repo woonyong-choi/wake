@@ -1,6 +1,6 @@
 apiVersion: v2
-name: opsia
-description: Opsia rule-first Kubernetes operations controller
+name: kyro
+description: Kyro rule-first Kubernetes operations controller
 type: application
 version: 0.1.0
 appVersion: "0.1.0"

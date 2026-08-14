@@ -1,38 +1,38 @@
-{{- define "opsia.name" -}}
+{{- define "kyro.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{- define "opsia.fullname" -}}
+{{- define "kyro.fullname" -}}
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
-{{- else if eq .Release.Name (include "opsia.name" .) -}}
+{{- else if eq .Release.Name (include "kyro.name" .) -}}
 {{- .Release.Name | trunc 63 | trimSuffix "-" -}}
 {{- else -}}
-{{- printf "%s-%s" .Release.Name (include "opsia.name" .) | trunc 63 | trimSuffix "-" -}}
+{{- printf "%s-%s" .Release.Name (include "kyro.name" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 {{- end -}}
 
-{{- define "opsia.labels" -}}
-app.kubernetes.io/name: {{ include "opsia.name" . }}
+{{- define "kyro.labels" -}}
+app.kubernetes.io/name: {{ include "kyro.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" }}
 {{- end -}}
 
-{{- define "opsia.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "opsia.name" . }}
+{{- define "kyro.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "kyro.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
-{{- define "opsia.image" -}}
+{{- define "kyro.image" -}}
 {{- printf "%s:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) -}}
 {{- end -}}
 
-{{- define "opsia.consoleImage" -}}
+{{- define "kyro.consoleImage" -}}
 {{- printf "%s:%s" .Values.console.image.repository (.Values.console.image.tag | default .Chart.AppVersion) -}}
 {{- end -}}
 
-{{- define "opsia.accessMode" -}}
+{{- define "kyro.accessMode" -}}
 {{- $requested := .Values.access.mode -}}
 {{- if ne $requested "auto" -}}
 {{- $requested -}}
@@ -60,38 +60,38 @@ ingress
 {{- end -}}
 {{- end -}}
 
-{{- define "opsia.serviceType" -}}
-{{- $mode := include "opsia.accessMode" . | trim -}}
+{{- define "kyro.serviceType" -}}
+{{- $mode := include "kyro.accessMode" . | trim -}}
 {{- if eq $mode "loadbalancer" -}}LoadBalancer
 {{- else if eq $mode "nodeport" -}}NodePort
 {{- else -}}ClusterIP
 {{- end -}}
 {{- end -}}
 
-{{- define "opsia.externalUrl" -}}
+{{- define "kyro.externalUrl" -}}
 {{- $configured := .Values.access.externalUrl | trim | trimSuffix "/" -}}
 {{- if $configured -}}
 {{- $configured -}}
-{{- else if and (eq (include "opsia.accessMode" . | trim) "ingress") .Values.access.host -}}
+{{- else if and (eq (include "kyro.accessMode" . | trim) "ingress") .Values.access.host -}}
 {{- if .Values.access.ingress.tls.enabled -}}https{{- else -}}http{{- end -}}://{{ .Values.access.host }}
 {{- end -}}
 {{- end -}}
 
-{{- define "opsia.internalUrl" -}}
-http://{{ include "opsia.fullname" . }}.{{ .Release.Namespace }}.svc
+{{- define "kyro.internalUrl" -}}
+http://{{ include "kyro.fullname" . }}.{{ .Release.Namespace }}.svc
 {{- end -}}
 
-{{- define "opsia.managementBaseUrl" -}}
-{{- include "opsia.externalUrl" . | trim | default (include "opsia.internalUrl" . | trim) -}}
+{{- define "kyro.managementBaseUrl" -}}
+{{- include "kyro.externalUrl" . | trim | default (include "kyro.internalUrl" . | trim) -}}
 {{- end -}}
 
-{{- define "opsia.cookieSecure" -}}
-{{- if hasPrefix "https://" (include "opsia.externalUrl" . | trim) -}}1{{- else -}}0{{- end -}}
+{{- define "kyro.cookieSecure" -}}
+{{- if hasPrefix "https://" (include "kyro.externalUrl" . | trim) -}}1{{- else -}}0{{- end -}}
 {{- end -}}
 
-{{- define "opsia.validateAccess" -}}
-{{- $mode := include "opsia.accessMode" . | trim -}}
-{{- $externalUrl := include "opsia.externalUrl" . | trim -}}
+{{- define "kyro.validateAccess" -}}
+{{- $mode := include "kyro.accessMode" . | trim -}}
+{{- $externalUrl := include "kyro.externalUrl" . | trim -}}
 {{- if and (eq $mode "loadbalancer") (hasPrefix "https://" $externalUrl) (ne .Values.access.loadBalancer.tlsTermination "external") -}}
 {{- fail "HTTPS load-balancer access requires access.loadBalancer.tlsTermination=external to acknowledge external TLS termination" -}}
 {{- end -}}

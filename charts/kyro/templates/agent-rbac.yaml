@@ -1,16 +1,16 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ include "opsia.fullname" . }}-agent
+  name: {{ include "kyro.fullname" . }}-agent
   labels:
-    {{- include "opsia.labels" . | nindent 4 }}
+    {{- include "kyro.labels" . | nindent 4 }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "opsia.fullname" . }}-agent-read-only
+  name: {{ include "kyro.fullname" . }}-agent-read-only
   labels:
-    {{- include "opsia.labels" . | nindent 4 }}
+    {{- include "kyro.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["pods", "events", "services", "endpoints", "configmaps", "serviceaccounts", "resourcequotas"]
@@ -25,14 +25,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "opsia.fullname" . }}-agent-read-only
+  name: {{ include "kyro.fullname" . }}-agent-read-only
   labels:
-    {{- include "opsia.labels" . | nindent 4 }}
+    {{- include "kyro.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "opsia.fullname" . }}-agent-read-only
+  name: {{ include "kyro.fullname" . }}-agent-read-only
 subjects:
   - kind: ServiceAccount
-    name: {{ include "opsia.fullname" . }}-agent
+    name: {{ include "kyro.fullname" . }}-agent
     namespace: {{ .Release.Namespace }}

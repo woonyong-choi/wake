@@ -4,7 +4,7 @@ Revision ID: 20260715_0230
 Revises: 20260715_0215
 Create Date: 2026-07-15 02:30:00
 
-Alertmanager events do not have an Opsia rule or threshold. Acknowledgement and
+Alertmanager events do not have an Kyro rule or threshold. Acknowledgement and
 incident promotion remain durable operator actions on both event sources.
 """
 

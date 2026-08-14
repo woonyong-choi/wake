@@ -61,10 +61,10 @@ def alertmanager_evidence(
                         "fingerprint": fingerprint,
                         "startsAt": starts_at,
                         "labels": {
-                            "opsia_namespace": namespace,
-                            "opsia_resource_kind": resource_kind,
-                            "opsia_resource_name": resource_name,
-                            "opsia_symptom": symptom,
+                            "kyro_namespace": namespace,
+                            "kyro_resource_kind": resource_kind,
+                            "kyro_resource_name": resource_name,
+                            "kyro_symptom": symptom,
                         },
                     }
                 ]

@@ -123,10 +123,10 @@ def alert_target_matches_incident(
 ) -> bool:
     """Match standard Alertmanager target labels to the classified incident."""
 
-    namespace = text(labels.get("opsia_namespace")) or text(labels.get("namespace"))
-    resource_kind = text(labels.get("opsia_resource_kind"))
-    resource_name = text(labels.get("opsia_resource_name"))
-    symptom = text(labels.get("opsia_symptom"))
+    namespace = text(labels.get("kyro_namespace")) or text(labels.get("namespace"))
+    resource_kind = text(labels.get("kyro_resource_kind"))
+    resource_name = text(labels.get("kyro_resource_name"))
+    symptom = text(labels.get("kyro_symptom"))
     if namespace is None or resource_kind is None or resource_name is None:
         return False
     return (

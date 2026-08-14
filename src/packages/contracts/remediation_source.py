@@ -10,7 +10,7 @@ import yaml
 from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
 from yaml.tokens import AliasToken, AnchorToken
 
-REMEDIATION_SOURCE_API_VERSION = "remediation.opsia.dev/v1alpha1"
+REMEDIATION_SOURCE_API_VERSION = "remediation.kyro.dev/v1alpha1"
 REMEDIATION_SOURCE_KIND = "RemediationSource"
 REMEDIATION_SOURCE_CONTRACT_PATH = ".remediation.yaml"
 MAX_CONTRACT_BYTES = 64 * 1024

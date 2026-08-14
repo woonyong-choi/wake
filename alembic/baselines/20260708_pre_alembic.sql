@@ -1,4 +1,4 @@
--- Opsia immutable pre-Alembic schema baseline.
+-- Kyro immutable pre-Alembic schema baseline.
 -- Source commit: 017b2485b2c408c2f7e928379ebf6541526d32ab
 -- Generated from Database.init() on PostgreSQL 17 with schema-only, no owner or ACL.
 -- This file contains no application data and intentionally has no alembic_version table.

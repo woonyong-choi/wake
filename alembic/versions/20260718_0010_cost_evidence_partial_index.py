@@ -36,7 +36,7 @@ def _preflight_offline_invalid_index() -> None:
     if not op.get_context().as_sql:
         return
     op.execute(
-        "DO $opsia$ "
+        "DO $kyro$ "
         "BEGIN "
         "IF EXISTS ("
         "SELECT 1 FROM pg_catalog.pg_class AS relation "
@@ -45,7 +45,7 @@ def _preflight_offline_invalid_index() -> None:
         "WHERE namespace.nspname = current_schema() "
         f"AND relation.relname = '{INDEX_NAME}' AND index_state.indisvalid IS FALSE"
         ") THEN RAISE EXCEPTION 'invalid concurrent index remnant: %; run online migration', "
-        f"'{INDEX_NAME}'; END IF; END $opsia$"
+        f"'{INDEX_NAME}'; END IF; END $kyro$"
     )
 
 

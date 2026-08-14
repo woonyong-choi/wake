@@ -337,15 +337,15 @@ class RecoveryActionPreflight:
                 else []
             )
             if not session_baseline:
-                verification_blockers.append("metrics:opsia_continuity_active_sessions")
+                verification_blockers.append("metrics:kyro_continuity_active_sessions")
             failure_ratio_before, failure_ratio_identity = metric_sample_with_identity(
                 evidence,
-                "opsia_sli_failure_ratio",
+                "kyro_sli_failure_ratio",
                 target,
             )
             request_rate_baseline, request_rate_identity = metric_sample_with_identity(
                 evidence,
-                "opsia_sli_request_rate",
+                "kyro_sli_request_rate",
                 target,
             )
             if (
@@ -357,8 +357,8 @@ class RecoveryActionPreflight:
             ):
                 verification_blockers.extend(
                     [
-                        "metrics:opsia_sli_failure_ratio",
-                        "metrics:opsia_sli_request_rate",
+                        "metrics:kyro_sli_failure_ratio",
+                        "metrics:kyro_sli_request_rate",
                     ]
                 )
             alerts = (

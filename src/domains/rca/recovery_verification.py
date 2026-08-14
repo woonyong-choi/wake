@@ -15,10 +15,10 @@ from typing import Any
 
 from packages.contracts.event_bus.interfaces import JsonObject
 
-STANDARD_FAILURE_RATIO_METRIC = "opsia_sli_failure_ratio"
-STANDARD_REQUEST_RATE_METRIC = "opsia_sli_request_rate"
-STANDARD_SLI_ALERT_NAME = "OpsiaSliFailureRatioHigh"
-CONTINUITY_ACTIVE_SESSIONS_METRIC = "opsia_continuity_active_sessions"
+STANDARD_FAILURE_RATIO_METRIC = "kyro_sli_failure_ratio"
+STANDARD_REQUEST_RATE_METRIC = "kyro_sli_request_rate"
+STANDARD_SLI_ALERT_NAME = "KyroSliFailureRatioHigh"
+CONTINUITY_ACTIVE_SESSIONS_METRIC = "kyro_continuity_active_sessions"
 CONTINUITY_SAMPLE_MAX_AGE_SECONDS = 30
 STANDARD_SLI_IDENTITY_LABELS = (
     "namespace",
@@ -28,7 +28,7 @@ STANDARD_SLI_IDENTITY_LABELS = (
     "sli",
     "symptom",
 )
-RECOVERY_CONTINUITY_LABEL = "opsia.dev/recovery-continuity"
+RECOVERY_CONTINUITY_LABEL = "kyro.dev/recovery-continuity"
 RECOVERY_CONTINUITY_PROTECTED_VALUE = "protected"
 DEFAULT_MINIMUM_SECONDS = 300
 DEFAULT_MAXIMUM_SECONDS = 600
@@ -764,7 +764,7 @@ def protected_workloads(
     """Observe exact pre-recovery workload identities without demo name rules.
 
     At PR preflight time, only healthy peer Deployments explicitly opted in with
-    ``opsia.dev/recovery-continuity=protected`` are snapshotted. During
+    ``kyro.dev/recovery-continuity=protected`` are snapshotted. During
     verification, only those persisted identities are selected. The recovery
     target itself is excluded because its rollout is validated separately by
     ``deployment_replicas``.
