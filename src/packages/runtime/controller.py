@@ -105,15 +105,20 @@ class CompositionPlan:
         )
 
 
-def event_bus_for_mode(mode: str) -> InMemoryEventBus | NatsEventBus:
+def validate_event_bus_mode(mode: str) -> str:
     normalized = mode.strip().lower()
+    if normalized not in EVENT_BUS_MODES:
+        raise ValueError(
+            f"{CONTROLLER_EVENT_BUS_MODE_ENV} must be one of {sorted(EVENT_BUS_MODES)}: {mode!r}"
+        )
+    return normalized
+
+
+def event_bus_for_mode(mode: str) -> InMemoryEventBus | NatsEventBus:
+    normalized = validate_event_bus_mode(mode)
     if normalized == "inprocess":
         return InMemoryEventBus()
-    if normalized == "nats":
-        return NatsEventBus()
-    raise ValueError(
-        f"{CONTROLLER_EVENT_BUS_MODE_ENV} must be one of {sorted(EVENT_BUS_MODES)}: {mode!r}"
-    )
+    return NatsEventBus()
 
 
 def build_composition_plan(
@@ -122,7 +127,7 @@ def build_composition_plan(
     event_bus_mode: str | None = None,
 ) -> CompositionPlan:
     mode = event_bus_mode or ControllerProfile.from_env().event_bus_mode
-    event_bus_for_mode(mode)
+    validate_event_bus_mode(mode)
     services = discover_services(root)
     agent = tuple(service for service in services if service.name in AGENT_SERVICE_NAMES)
     controller = tuple(service for service in services if service.name in CORE_CONTROLLER_SERVICE_NAMES)
