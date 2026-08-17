@@ -59,10 +59,10 @@ nats-py==2.15.0
     # via kyro-control-plane
 opentelemetry-api==1.43.0
     # via
+    #   kyro-control-plane
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-    #   kyro-control-plane
 opentelemetry-exporter-otlp-proto-common==1.43.0
     # via opentelemetry-exporter-otlp-proto-http
 opentelemetry-exporter-otlp-proto-http==1.43.0
@@ -73,8 +73,8 @@ opentelemetry-proto==1.43.0
     #   opentelemetry-exporter-otlp-proto-http
 opentelemetry-sdk==1.43.0
     # via
-    #   opentelemetry-exporter-otlp-proto-http
     #   kyro-control-plane
+    #   opentelemetry-exporter-otlp-proto-http
 opentelemetry-semantic-conventions==0.64b0
     # via opentelemetry-sdk
 protobuf==7.35.1
