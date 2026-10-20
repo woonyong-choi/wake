@@ -141,25 +141,16 @@ Event 는 보존 기간이 지나면 사라지므로 어떤 조건에서도 삭�
 
 가장 단순하고 지금도 fallback 으로 남아 있는 방식(`resources_complete` 경로).
 버린 이유는 아니고 **범위 삭제를 그 위에 얹은** 것이다. 큰 클러스터에서 전체 수집이
-매번 완전하기를 기대할 수 없고, 그러면 inventory 가 영원히 늙은 행을 들고 있게 된다.
+매번 완전하기를 기대할 수 없다. 전체 수집이 완료될 때까지 삭제를 미루면 inventory에 오래된 행이 계속 남을 수 있다.
 namespace 하나를 끝까지 봤다면 그 namespace 안에서는 삭제를 말할 수 있다는 것이 절충이다.
 
 ### 알려진 한계 (지금 열려 있는 구멍)
 
-**`collection_coverage` 항목을 만드는 코드가 이 저장소에 없다.**
-에이전트는 `collection_scopes` / `collection_limits` / `collection_status` 까지는
-내보내지만(`cluster-agent/providers/kubernetes_providers.py:1089`), 그것을
-`collection_coverage` 로 투영해 스냅샷 summary 에 싣는 단계가 연결돼 있지 않다.
-따라서 런타임에서 `inventory_deletion_scopes()` 는 항상 빈 튜플을 돌려주고,
-시스템은 "수집이 불완전하면 아무것도 지우지 않는" 쪽으로 닫힌다.
+현재 에이전트는 Pod namespace별 `collection_coverage`를 만든다. [수집기](../src/services/target/cluster-agent/providers/kubernetes_providers.py)의 `pod_collection_coverage()`가 필터·잘림·수집 실패·식별자 누락을 검사하고, [사건 이력 수신](../src/domains/rca/history_ingest.py)이 이 증명을 snapshot summary에 전달한다. [인벤토리 저장소](../src/domains/inventory/repository.py)는 전달된 증명으로 삭제 가능 범위를 판단한다.
 
-- 이 방향은 **안전한 쪽**이다(과소 삭제). 살아 있는 리소스를 지우지 않는다.
-- 그러나 범위 삭제 기능은 사실상 꺼져 있다. 투영 함수가 호출자 없이 남아 있던
-  것을 걷어내고(0% 커버리지 뒤에 숨어 있었다) 이 문서에 한계로 올렸다.
-- 다음 병목: 에이전트 스냅샷 payload 의 실제 모양을 실물로 확인한 뒤 투영 단계를
-  연결하고, 부분 수집 스냅샷이 관측한 namespace 안에서만 삭제를 표시하는지
-  DB 통합 테스트로 확인해야 한다. payload 모양을 추정해서 연결하면
-  이 저장소가 경계하는 바로 그 실수 — 잘못 고치는 것 — 가 된다.
+지원 범위는 완전성이 증명된 Pod namespace뿐이다. Workload·Service 등 다른 collection은 이 경로로 삭제 권한을 받지 않는다. Pod 목록이나 payload가 잘려 어느 namespace에서 항목이 빠졌는지 알 수 없으면 해당 payload의 모든 Pod 증명을 폐기한다. 증명 없는 부재를 삭제로 처리하지 않으며 Event도 삭제 범위에서 제외한다. namespace 일부의 증명이 클러스터 전체 수집의 완전성을 뜻하지는 않는다.
+
+[수집 연결 회귀 시험](../tests/test_incident_history_collection.py)의 `test_a_proven_namespace_records_replacement_and_deletion`은 provider 출력부터 인증된 수신·DB·이력 조회까지 이 경로를 검사한다. 이 시험은 격리된 PostgreSQL과 Redis가 필요하며, 로컬 단위 시험만으로 해당 통합 검증을 대신하지 않는다.
 
 ---
 
@@ -167,6 +158,6 @@ namespace 하나를 끝까지 봤다면 그 namespace 안에서는 삭제를 말
 
 1. 실제 kind 클러스터에서 장애 주입 → Draft PR 발행까지 E2E 를 한 번 통과시킨다.
    현재 보장 범위는 계약 테스트까지다.
-2. 위의 `collection_coverage` 투영을 실물 payload 기준으로 연결한다.
+2. 위의 Pod namespace 증명과 삭제 연결을 격리된 PostgreSQL·Redis 통합 시험으로 확인한다. 다른 리소스 종류의 삭제 지원으로 확대 해석하지 않는다.
 3. 두 번째 Golden Path(CrashLoopBackOff 또는 OOMKilled)를 같은 안전 계약 위에 올린다.
    룰은 이미 카탈로그에 있고, 막히는 곳은 패치 allowlist 와 회복 검증 쪽이다.

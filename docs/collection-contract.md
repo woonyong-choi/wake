@@ -93,9 +93,9 @@ flowchart TD
 
 ### 무엇을 시험했나
 
-→ 계약 자체는 [`domains/inventory/coverage.py`](../src/domains/inventory/coverage.py) 에 있다. `k8s-ops-min` 의 `tests/test_inventory_coverage.py` 는 이 저장소에 없는 `domains.inventory.kubernetes_snapshot` 에 기대고 있어 함께 옮기지 않았다 — 이 계층의 회귀 테스트는 아직 비어 있다.
+계약 자체는 [`domains/inventory/coverage.py`](../src/domains/inventory/coverage.py)에 있다. 이전 `k8s-ops-min`의 `tests/test_inventory_coverage.py`는 이 저장소에 없는 `domains.inventory.kubernetes_snapshot`에 의존하므로 함께 옮기지 않았다. 현재 저장소에는 [삭제 범위 속성 시험](../tests/test_inventory_delete_scope_properties.py), [Pod 수집 증명 시험](../tests/test_incident_history_provider.py), [수신 어댑터 시험](../tests/test_incident_history.py)과 [수집·DB·이력 연결 시험](../tests/test_incident_history_collection.py)이 있다. 마지막 시험은 격리된 PostgreSQL과 Redis를 지정해야 실행한다. 현재 연결된 삭제 판단은 완전성이 증명된 Pod namespace로 제한한다.
 
-기능이 되는지가 아니라 **어떤 사고를 막았는지**로 시험을 짰습니다.
+아래 표는 어떤 사고를 막을지에 따라 정한 이전 `k8s-ops-min`의 시험 기준이다. 현재 저장소의 시험 실적은 아니다.
 
 | 막으려는 사고 | 시험 내용 |
 |---|---|
@@ -123,10 +123,12 @@ flowchart TD
 
 ## 아직 못 한 것
 
-- 응답 규격 자체에 버전이 없습니다. 구조가 바뀌면 받는 쪽이 호환 여부를 판단할 방법이 없습니다 → [조회 API 와 MCP](catalog-api-mcp.md#api)에서 경로 버전으로 해결했습니다
+- 응답 규격 자체에 버전이 없으면 받는 쪽이 구조 변경의 호환 여부를 판단할 수 없다. [카탈로그 조회 API](catalog-api.md#api)는 경로 버전을 둔다.
 - 정리된 자료에서 원본으로 되돌아가는 참조가 명시적이지 않습니다 → [메타데이터 카탈로그](metadata-catalog.md#리니지)에서 채웠습니다
 - 삭제 외의 경로는 계약을 강제하지 않습니다
 
 ---
 
-[← Kyro로 돌아가기](../README.md) · [다음: 잘라도 되지만 숨기면 안 됩니다 →](collection-limits.md)
+잘라도 되지만 숨기면 안 됩니다(`collection-limits.md`)는 다음 참조로 남아 있다. 해당 공개 원문을 이 저장소에서 확인할 수 없다.
+
+[← Kyro로 돌아가기](../README.md)

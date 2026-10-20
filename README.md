@@ -1,134 +1,120 @@
-# K8s Clue — Kubernetes 장애 진단과 Draft PR 제안
+# K8s Clue
 
-Kubernetes 장애 증거를 읽기 전용으로 수집하고, 버전이 붙은 규칙으로 원인을 판정한 뒤, 허용된 GitOps 변경만 GitHub Draft PR로 제안하는 Python 팀 프로젝트입니다.
+Kubernetes 장애 증거를 읽기 전용으로 수집하고, 규칙으로 원인을 판정한 뒤 허용된 변경만 GitHub Draft PR로 제안합니다.
 
-- 5인 팀의 팀장으로 전체 아키텍처, 이벤트 런타임, 서비스 간 계약, CI와 배포를 맡았습니다. 룰 카탈로그, 에이전트 수집, PR 생성, 게이트웨이 인증은 팀원이 작성했습니다.
-- 클러스터를 직접 변경하거나 PR을 자동 merge하지 않습니다. 증거와 허용 필드를 확인하고, 사람이 검토할 Draft PR까지만 생성합니다.
-- 공개 정리본은 kind에서 ImagePullBackOff를 재현하고 관련 계약 테스트 86개를 별도로 확인했습니다. 전체 pytest는 302개이며, 실제 PR부터 배포·회복까지의 전체 연결은 아직 검증하지 않았습니다.
+클러스터를 직접 변경하거나 PR을 자동 병합하지 않습니다. 예를 들어 ImagePullBackOff 증거에서 잘못된 이미지 태그를 판별하면, 승인된 manifest의 image 값만 바꾸는 수정안을 구성합니다. 증거가 부족하거나 승인된 변경 대상에 충돌이 생기면 PR 생성을 중단합니다.
 
-RCA 룰은 합성 입력 116개(장애 87 + 정상 29)에서 가려진 후보 0건·오탐 0건을 기록했습니다. 이 수치는 2026-09-23 로컬 재실행 결과이며 실사용 트래픽 지표가 아닙니다.
+[![CI](https://github.com/woonyong-choi/k8sSeam/actions/workflows/ci.yml/badge.svg)](https://github.com/woonyong-choi/k8sSeam/actions/workflows/ci.yml)
 
-[![CI](https://github.com/woonyong-choi/k8s-clue/actions/workflows/ci.yml/badge.svg)](https://github.com/woonyong-choi/k8s-clue/actions/workflows/ci.yml)
-![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
+![kind에서 ErrImagePull을 관측하고 별도의 계약 테스트 24 + 29 + 27 + 6건을 실행한 기록](docs/demo.gif)
 
-크래프톤 정글 팀 과제(원본 [minmings111/Kyro-jungle-final](https://github.com/minmings111/Kyro-jungle-final))에서 시작해, 과제 종료 후 개인 포크에서 Golden Path와 안전 계약을 정리했습니다. 커밋 단위 경계는 [팀 과제와 개인 확장의 경계](docs/personal-extension.md)에 있습니다.
+이 GIF는 `DEMO_SKIP_PR=1 DEMO_KIND_CONTEXT=kind-clue-demo bash scripts/demo_terminal.sh`의 실행 기록입니다. kind의 실제 장애 증거를 뒤의 계약 테스트 입력으로 넘기는 데모는 아니며, GitHub에 실제 PR도 발행하지 않습니다.
 
-## 데모
+> [!NOTE]
+> 개발 중입니다. 배포판은 없고 소스를 직접 실행합니다.
 
-`make demo`는 증거·RCA, base SHA 고정 Draft PR, 배포 후 검증의 계약 테스트를 실행합니다. `DEMO_KIND_CONTEXT`를 설정하면 kind에서 ImagePullBackOff를 재현하는 장면을 먼저 실행합니다. 이 장면의 실제 증거가 뒤의 계약 테스트 입력으로 연결되지는 않으며, 실제 GitHub PR도 발행하지 않습니다.
+## 빠른 시작
 
-![make demo 실행 기록 — kind에서 ErrImagePull 관측 후 계약 테스트 24 + 29 + 27 + 6건 통과](https://raw.githubusercontent.com/woonyong-choi/k8s-clue/main/docs/demo.gif)
+Python 3.13과 [uv](https://docs.astral.sh/uv/getting-started/installation/)가 필요합니다. 아래는 클러스터나 GitHub를 변경하지 않고 대표 경로의 계약 테스트를 실행하는 방법입니다. 제품 전체를 설치하고 외부 연동까지 확인하는 절차는 아닙니다.
 
-위는 `DEMO_SKIP_PR=1 DEMO_KIND_CONTEXT=kind-clue-demo bash scripts/demo_terminal.sh`의 실제 실행 기록입니다. kind에 없는 image tag를 쓰는 Deployment를 띄워 `ErrImagePull`을 관측하고, 네 장면의 계약 테스트 86건을 통과한 뒤, Draft PR 수명주기 계약 테스트 이름 일부를 보여 줍니다.
-
-## 빠르게 실행하기
-
-Python 3.13과 [uv](https://docs.astral.sh/uv/getting-started/installation/)가 필요합니다. 카탈로그 계층 테스트에는 Docker(PostgreSQL 하나)가 추가로 필요합니다.
-
-```bash
-git clone https://github.com/woonyong-choi/k8s-clue.git && cd k8s-clue
+```sh
+git clone https://github.com/woonyong-choi/k8sSeam.git
+cd k8sSeam
 uv sync --all-groups
-make demo          # Golden Path 계약 86개
-make catalog-up && make catalog-schema   # 카탈로그 검사용 PostgreSQL
-make test          # ruff lint + pytest 302개
+DEMO_KIND_CONTEXT= DEMO_SKIP_PR=1 make demo
 ```
 
-`make demo`는 `DEMO_KIND_CONTEXT`가 없으면 kind 장면을 건너뛰고 계약 테스트만 실행합니다. `DEMO_SKIP_PR=0`은 실제 PR 실행이 구현되지 않아 시작 전에 오류로 종료합니다. 전체 타깃은 `make help`, 로컬 도구 확인은 `make doctor`로 봅니다.
+입력은 테스트에 정의된 ImagePullBackOff 증거와 GitHub 응답입니다. 실행 결과는 원인 판정, base SHA를 고정한 Draft PR, 배포 후 증거 검증, 안전 계약을 나누어 검사한 pytest 결과입니다. 2026-10-21에 위 계약 검사 명령을 다시 실행해 각각 24개, 29개, 27개, 6개로 총 86개 통과를 확인했습니다. 출력 일부는 아래와 같습니다.
 
-## 구조
-
-```
-src/services/target/cluster-agent/   읽기 전용 증거 수집 (get·list·watch만)
-src/services/ai/                     RCA·계획·복구 워커 10개
-src/services/gitops/                 safe-pr-worker(패치 구성) · scm-worker(Draft PR)
-src/services/gateway/                api-gateway(증거 수신) · outbox-relay(발행)
-src/domains/                         gitops·rca·inventory·datacatalog 도메인 규칙
-src/packages/                        event bus · outbox · 처리 원장 · 보안
-charts/clue/                         Helm chart (agent RBAC은 read-only만)
-evals/                               RCA 룰 골든셋과 실측 결과
-tests/                               계약·속성·카탈로그 테스트 302개
+```text
+[demo][skip] kind scene (DEMO_KIND_CONTEXT unset)
+[demo] ImagePullBackOff evidence and deterministic RCA
+24 passed in 2.15s
+[demo] base-SHA-pinned GitOps Draft PR (contract only, no live PR)
+29 passed in 0.56s
 ```
 
-`uv run python scripts/services.py`가 16개 runtime 서비스를 출력합니다.
+실제 클러스터 재현과 계약 검사는 별개이므로 테스트 통과를 실제 장애 복구 완료로 해석하면 안 됩니다. 위 실행 시간은 개별 테스트 실행 기록이며 제품의 장애 처리 성능 측정값은 아닙니다.
 
-```mermaid
-flowchart LR
-  subgraph T["대상 클러스터"]
-    K["Kubernetes API"]
-    A["cluster-agent<br/>get·list·watch만<br/>명령 채널 없음"]
-  end
-  subgraph M["관리 클러스터"]
-    GW["api-gateway<br/>증거 수신·에이전트 인증"]
-    DB[("PostgreSQL<br/>증거·outbox·처리 원장")]
-    RCA["rca-worker<br/>versioned rule 판정"]
-    SPR["safe-pr-worker<br/>allowlist scalar 패치 구성"]
-    SCM["scm-worker<br/>base SHA 재확인 → Draft PR"]
-    VER["rca-feedback-worker<br/>기준선 대비 회복 검증"]
-  end
-  GH["GitHub App<br/>GitOps 저장소"]
-  P["사람<br/>리뷰·merge"]
+`DEMO_KIND_CONTEXT`에 값을 주면 해당 클러스터에서 namespace와 Deployment를 생성·삭제합니다. 계약 검사만 하려면 위처럼 빈 값으로 실행하세요. `DEMO_SKIP_PR=0`은 실제 PR 생성 경로가 구현되지 않아 실행 전에 오류로 종료합니다. 전체 명령은 `make help`, 필요한 도구는 `make doctor`로 확인할 수 있습니다.
 
-  K -->|"Pod·Event 읽기"| A
-  A -->|"증거 bundle<br/>(에이전트가 연결 개시)"| GW
-  GW --> DB
-  DB --> RCA
-  RCA -->|"원인 후보 + 근거"| SPR
-  SPR -->|"scalar 1개 patch<br/>+ 기대 base SHA"| SCM
-  SCM -->|"draft: true 강제<br/>merge API 미호출"| GH
-  GH --> P
-  P -->|"merge 결정"| GH
-  GH -->|"서명된 merge webhook"| VER
-  A -.->|"다음 주기 evidence window"| VER
-  VER -->|"resolved / verification failed"| DB
+## 해결하는 문제
+
+장애 증거를 수집한 시점과 수정안을 검토하는 시점 사이에 Git 저장소가 바뀔 수 있습니다. K8s Clue는 증거와 대상 리소스를 연결하고, 원인 판정의 근거와 수정할 필드를 제한한 뒤, PR 생성 직전에 base SHA를 다시 확인합니다. 운영자는 이 근거와 변경 내용을 보고 병합 여부를 결정합니다.
+
+`kubectl`로 Pod와 Event를 직접 확인하고 Git 변경안을 작성하는 방법도 가능합니다. K8s Clue는 그 과정에서 증거 참조, 규칙 버전, 허용 필드와 PR 생성 조건을 코드와 계약 테스트로 관리합니다. 임의의 장애를 해결하는 범용 도구는 아니며, 현재 재현과 계약 검사 기록이 있는 대표 시나리오는 ImagePullBackOff 하나입니다.
+
+Argo CD 같은 GitOps 배포 도구를 대신하지도 않습니다. 이 저장소의 역할은 증거를 바탕으로 제한된 변경안을 제안하고 이후 관측 결과를 검증하는 것입니다. 실제 PR 생성부터 병합·배포·회복까지 연결한 종단 검증은 아직 끝나지 않았습니다.
+
+## 작동 방식
+
+1. `cluster-agent`가 Kubernetes API의 `get`·`list`·`watch` 권한으로 증거를 읽고 gateway에 전송합니다.
+2. 규칙 엔진이 버전이 붙은 YAML 카탈로그로 원인 후보를 판정합니다. 규칙 밖의 증거는 실패 단계, reason code와 원문 참조를 남깁니다.
+3. `safe-pr-worker`가 허용된 scalar 값만 바꿉니다. `scm-worker`는 base SHA를 재확인하고 `draft: true`인 PR만 허용합니다.
+4. 사람이 병합·배포한 뒤에는 새 evidence window를 변경 전 기준선과 비교합니다. 검증 시작 시각보다 오래된 증거는 거부합니다.
+
+![설계: 증거 수집과 규칙 판정 후 허용된 패치만 Draft PR로 제안하고, 사람이 승인한 배포의 회복 여부를 다시 관측하는 흐름](docs/figure.png)
+
+YAML 전체를 다시 출력하지 않고 대상 `ScalarNode`의 byte span만 치환합니다. [속성 테스트](tests/test_source_patch_splice_properties.py)는 한 줄 변경, 주석 수 보존과 rollback의 byte 단위 원문 복원을 검사합니다. Helm 권한 검사는 차트 원문이 아니라 렌더링 결과를 대상으로 하며, 변경 권한·exec·attach·proxy·wildcard를 거부합니다.
+
+현재 Controller는 제어면 서비스 11개를 한 프로세스로 조합합니다. 별도 대상 에이전트를 포함하면 서비스 항목은 12개이며 Pod 수를 뜻하지는 않습니다. 구성과 사건 이력 API는 [Project Map](docs/PROJECT-MAP.md), 변경 제한과 검증 조건은 [설계 근거](docs/design.md)와 [Golden Path](docs/GOLDEN-PATH.md)에 있습니다.
+
+## 상태
+
+규칙 기반 진단, 제한된 패치, Draft PR과 회복 검증의 계약 테스트가 있습니다. 사건 목록·상세 화면과 보존된 사건 이력 조회도 구현되어 있습니다. 이력은 관측하지 못한 삭제 시각을 정확한 시각으로 표시하지 않으며 수집 범위의 불완전성을 함께 반환합니다.
+
+전체 pytest와 Frontend 검사는 2026-10-10 기록입니다. 전용 PostgreSQL 17.11에서 302개가 경고 없이 통과했고, DB 없이 실행하면 265개 통과와 37개 skip입니다. Frontend 응답 계약·경로 테스트 18개, typecheck, lint, build도 통과했습니다. 실제 Redis 8.10.2와 HTTP gateway에서 로그인, 조회, 세션 만료, Redis 장애 중 인증 거부와 재연결을 확인한 기록이 있습니다. 이후 추가된 사건 이력 기능까지 포함한 현재 전체 테스트 수를 뜻하지는 않습니다.
+
+아래 표는 같은 명령으로 실행하는 네 계약 검사 묶음입니다. kind 재현과 RCA 합성 평가를 포함한 나머지 수치는 2026-09-23 기록이며 이번 문서 수정에서 새로 측정한 결과가 아닙니다.
+
+| 계약 검사 | 확인 대상 | 기록된 통과 수 |
+|---|---|---:|
+| 증거·RCA | ImagePullBackOff 증거의 규칙 판정 | 24 |
+| Draft PR | base SHA 고정, draft 강제, merge 경로 부재 | 29 |
+| 배포 후 검증 | 기준선 대비 회복 판정, stale window 거부 | 27 |
+| Golden Path 안전 계약 | read-only·correlation·멱등성·allowlist 등 9개 조항 | 6 |
+
+속성 테스트 6개, 운영 데이터 카탈로그 검사 79개 통과 기록도 있습니다. Helm 검사에서는 렌더링한 Kubernetes object 11개에 mutation verb와 wildcard가 없었고, event bus의 in-process와 NATS 결과는 `equivalent: true`였습니다. `make test`는 lint, 컴파일 검사, `uv.lock`에서 내보낸 의존성과 `requirements.txt`의 일치 여부, pytest를 함께 확인합니다.
+
+RCA 카탈로그는 29개 rule과 87개 candidate를 사용합니다. [합성 평가](evals/results.md)는 장애 87개와 정상 29개, 총 116개 시나리오에서 accuracy 87/87, 오탐 0/29, confusion pair 0을 기록했습니다. 카탈로그를 역산한 합성 입력이므로 accuracy 100%는 실제 장애 정확도가 아니라 후보가 다른 규칙에 가려지지 않는지 확인한 결과입니다.
+
+실사용 트래픽, 복구 시간, 처리량과 비용은 측정하지 않았습니다. 외부 클러스터와 GitHub App을 연결한 종단 검증도 미완입니다. 지표·로그 임계치가 필요한 경로에는 패치 allowlist와 회복 검증의 제약이 남아 있습니다. `clue diagnose`는 계획된 CLI이며 현재 실행 진입점은 Make 타깃입니다.
+
+인벤토리 전체의 삭제 처리와 사건 이력의 삭제 관측은 서로 다른 기능입니다. 현재 사건 이력은 완전성이 확인된 namespace의 Pod 수집에서 빠진 객체만 삭제로 인정합니다. 범위 제한 수집이므로 이력 전체 상태는 `partial`입니다. 세부 조건은 [Project Map](docs/PROJECT-MAP.md)에 있습니다.
+
+후속 작업은 [GitOps 증거 연결 #22](https://github.com/woonyong-choi/k8sSeam/issues/22)에서 추적합니다. 저장·통신 호환 때문에 남아 있는 `kyro`·`KYRO` 식별자의 마이그레이션 경로는 아직 정하지 않았습니다. 안정된 명령·설정·데이터 형식의 호환성을 보장하는 단계는 아닙니다.
+
+## 문서
+
+- [시작](docs/PROJECT-MAP.md)
+  - [제품 완성 계획](docs/PYTHON-FIRST-PLAN.md)
+- [설계](docs/design.md)
+  - [안전 계약](docs/GOLDEN-PATH.md)
+  - [수집 완전성](docs/collection-contract.md)
+  - [메타데이터 카탈로그](docs/metadata-catalog.md)
+- [명세](docs/catalog-api.md)
+  - [품질 검사 SQL](docs/sql-quality-checks.md)
+- [기여 이력](docs/personal-extension.md)
+
+[전체 문서](docs/README.md)
+
+## 개발
+
+DB 연동 검사에는 Docker로 실행하는 카탈로그 PostgreSQL이 필요합니다. 아래 DB 명령은 로컬 컨테이너와 테이블을 생성합니다.
+
+```sh
+make catalog-up
+make catalog-schema
+make test
+make manifest-check
 ```
 
-설계 문서: [설계 근거와 알려진 한계](docs/design.md) · [Golden Path 안전 계약 9개 조항](docs/GOLDEN-PATH.md) · [Project Map](docs/PROJECT-MAP.md) · [문서 목차](docs/README.md)
+Frontend는 Node.js 22를 사용하며 CI에서 아래 명령으로 검사합니다.
 
-## 안전 규칙
+```sh
+cd frontend
+npm ci --include=dev --no-audit --no-fund
+npm run check
+```
 
-- **YAML 패치** — 원문을 다시 덤프하지 않고 허용한 `ScalarNode`의 byte span만 바꿉니다. 속성 테스트가 한 줄만 바뀌는지, 주석 수가 유지되는지, rollback이 원문을 복원하는지 확인합니다. → [`domains/gitops/source_patch.py`](src/domains/gitops/source_patch.py)
-- **원인 판정** — 버전이 붙은 YAML 룰 카탈로그(29 rule / 87 candidate)로 판단합니다. 규칙 밖의 증거는 reason code와 원문 참조를 남기고 멈춥니다. → [`services/ai/agent/causes/engine.py`](src/services/ai/agent/causes/engine.py), [`evals/results.md`](evals/results.md)
-- **Draft PR** — PR 생성 직전에 base SHA를 다시 읽고, 처음 확인한 SHA와 다르면 중단합니다. `draft: true`가 아닌 응답을 거부하고 merge API는 호출하지 않습니다. → [`github_provider.py`](src/services/gitops/scm-worker/github_provider.py)
-- **인벤토리 삭제** — 수집 범위가 완전하고 잘리지 않았으며 selector와 reason code가 없을 때만 `(resource_type, namespace)` 삭제 범위를 발급합니다. Event는 삭제 범위를 얻지 못합니다. → [`coverage.py`](src/domains/inventory/coverage.py)
-- **권한 검사** — Helm이 렌더링한 manifest에서 read-only 밖의 verb, exec·attach·proxy, wildcard가 보이면 CI가 실패합니다. → [`manifest-check.sh`](scripts/manifest-check.sh)
-
-## 검증
-
-전체 pytest와 Frontend 검사는 2026-10-10에 다시 실행했습니다. 전용 PostgreSQL 17.11에서 302개가 경고 없이 통과했고, DB 없이 실행하면 265개 통과와 37개 skip입니다. Frontend는 응답 계약과 경로 테스트 18개, typecheck, lint, build를 통과했습니다. 실제 Redis 8.10.2와 HTTP gateway에서 로그인, 조회, 세션 만료, Redis 장애 중 인증 거부와 재연결을 확인했습니다. 아래 kind 데모와 RCA 합성 평가 수치는 2026-09-23 기록입니다.
-
-| 스위트 | 무엇을 증명하나 | 개수 | 실행 명령 |
-|---|---|---:|---|
-| 전체 pytest | lint + 전 계층 회귀 (PostgreSQL 기동 시) | **302 passed** | `make catalog-up && make test` |
-| 전체 pytest (DB 없이) | DB 연동 37개는 skip | 265 passed, 37 skipped | `make test` |
-| demo — 증거·RCA | ImagePullBackOff 증거에서 결정론적 원인이 나오는가 | 24 | `make demo` |
-| demo — Draft PR | base SHA 고정, draft 강제, merge 경로 부재 | 29 | `make demo` |
-| demo — 배포 후 검증 | 기준선 대비 실제 회복 판정, stale window 거부 | 27 | `make demo` |
-| demo — Golden Path 안전 계약 | 9개 조항(read-only·correlation·멱등성·allowlist 등) | 6 | `make demo` |
-| 속성 테스트 | byte span 치환과 삭제 범위의 불변식 | 6 | `uv run pytest tests/test_source_patch_splice_properties.py tests/test_inventory_delete_scope_properties.py` |
-| RCA 룰 실측 | 가려진 후보 / 정상 증거 오탐 | **0 / 0** (116 시나리오) | `make rca-eval` |
-| 운영 데이터 카탈로그 | 자산·스키마 계약·리니지·품질 SQL·조회 API | **79 passed** | `make catalog-test` |
-| Helm·manifest 검사 | 렌더된 object 11개에 mutation verb·wildcard 없음 | 통과 | `make manifest-check` |
-| event bus 모드 동등성 | in-process와 NATS 결과가 같은가 | `equivalent: true` | `make event-bus-equivalence` |
-| requirements 재현성 | `uv.lock` ↔ `requirements.txt` | 일치 | `make test` |
-
-CI는 4개 job입니다 — `backend`(`make gate-backend`), `frontend`(`npm run check`), `actionlint`, `demo`. `demo` job은 kind 클러스터를 띄우고 `DEMO_KIND_CONTEXT`를 넘겨, 없는 image tag를 쓰는 Deployment가 실제로 `ImagePullBackOff`에 들어가는지 관측한 뒤 같은 계약 테스트를 실행합니다(`DEMO_SKIP_PR=1`이므로 PR은 발행하지 않습니다).
-
-## 범위와 한계
-
-- 장애 재현과 계약 검사를 기록한 시나리오는 **ImagePullBackOff 하나**입니다. 실제 PR부터 배포·회복까지의 전체 연결은 미검증입니다. 룰 카탈로그에는 다른 시나리오도 있지만, 지표·로그 임계치가 필요한 경로는 패치 allowlist와 회복 검증 쪽이 막혀 있습니다.
-- **실사용 트래픽·복구 시간·처리량·비용은 측정하지 않았습니다.** 외부 클러스터와 GitHub App의 종단 검증도 미완입니다. 현재 보장 범위는 계약 테스트와 kind 재현까지입니다.
-- RCA 골든셋은 카탈로그 YAML을 역산한 **합성 데이터**입니다. accuracy 100%는 실제 장애 정확도가 아니라 "어떤 후보도 가려져 있지 않다"는 뜻입니다.
-- **범위 단위 삭제 기능은 사실상 꺼져 있습니다.** 에이전트가 내보내는 `collection_scopes`를 `collection_coverage`로 투영하는 단계가 연결돼 있지 않아 런타임에서 `inventory_deletion_scopes()`는 항상 빈 튜플을 돌려줍니다. 안전한 쪽(아무것도 지우지 않음)으로 닫히지만 기능은 아직 없습니다 — [design.md의 알려진 한계](docs/design.md#알려진-한계-지금-열려-있는-구멍).
-- `clue diagnose`는 **계획된 CLI**이고 현재 실행 진입점은 Make 타깃입니다. 저장·통신 호환 때문에 남아 있는 `kyro`/`KYRO` 식별자의 마이그레이션 경로도 아직 정하지 않았습니다.
-
-## 관련 링크
-
-- [설계 근거](docs/design.md) — 안전 규칙과 알려진 한계
-- [Golden Path 안전 계약](docs/GOLDEN-PATH.md) — 9개 조항의 코드 강제 지점과 회귀 테스트
-- [팀 과제와 개인 확장의 경계](docs/personal-extension.md) — 커밋 범위, 정리 전후, 기술 스펙
-- 운영 데이터 카탈로그 — [수집 완전성 계약](docs/collection-contract.md) · [메타데이터 카탈로그](docs/metadata-catalog.md) · [품질 검사 SQL](docs/sql-quality-checks.md) · [조회 API](docs/catalog-api.md)
-- [Python 제품 완성 계획](docs/PYTHON-FIRST-PLAN.md) — 로컬 Docker·kind 완료 기준과 코드 보존 범위
-- 원본 팀 저장소 — [minmings111/Kyro-jungle-final](https://github.com/minmings111/Kyro-jungle-final) · [팀 발표 영상](https://www.youtube.com/watch?v=Ar4rNJZX7lU)
-- [포트폴리오](https://docs.woonyong.com/projects/) · [CI 실행 기록](https://github.com/woonyong-choi/k8s-clue/actions)
-- [`NOTICE`](NOTICE) — upstream [skyhook-io/radar](https://github.com/skyhook-io/radar) 출처와 재작성 범위 (Apache-2.0)
-- [Kubernetes — Pod lifecycle·Events](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/) · [GitHub REST API — Pulls](https://docs.github.com/en/rest/pulls/pulls)
+이 저장소는 크래프톤 정글 5인 팀 과제([원본](https://github.com/minmings111/Kyro-jungle-final))에서 시작한 개인 포크입니다. 팀장은 전체 아키텍처, 이벤트 런타임, 서비스 간 계약, CI와 배포를 맡았고, 팀원은 룰 카탈로그·에이전트 수집·PR 생성·게이트웨이 인증을 작성했습니다. 과제 종료 후 개인 작업의 커밋 경계는 [기여 이력](docs/personal-extension.md)에 있습니다. upstream [skyhook-io/radar](https://github.com/skyhook-io/radar)의 Apache-2.0 출처와 재작성 범위는 [NOTICE](NOTICE)에 있습니다. 루트 `LICENSE` 파일은 현재 없습니다.
