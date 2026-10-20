@@ -18,12 +18,12 @@
 
 ## 커밋 범위
 
-`git log --reverse --format='%h %ad %s' --date=short` 기준 전체 25개 커밋 중
-**팀 기준선 5개, 과제 종료 후 개인 작업 20개**입니다.
+아래 집계는 현재 `HEAD`가 아니라 당시 종료 커밋 [`9780fe9`](https://github.com/woonyong-choi/k8sSeam/commit/9780fe937c675e50e9c180b057f8988456ffebce)에 고정한다. 그 시점의 전체 25개 커밋은 팀 기준선 5개와 과제 종료 후 개인 작업 20개로 나뉜다.
 
 ```bash
-git rev-list --count HEAD            # 25
-git rev-list --count e1a9c79..HEAD   # 20
+git rev-list --count e1a9c795cffd2658268e66a7f2be2835bde76f18 # 5
+git rev-list --count 9780fe937c675e50e9c180b057f8988456ffebce # 25
+git rev-list --count e1a9c795cffd2658268e66a7f2be2835bde76f18..9780fe937c675e50e9c180b057f8988456ffebce # 20
 ```
 
 팀 기준선은 [`b749f3b`](https://github.com/woonyong-choi/k8s-clue/commit/b749f3b)(2026-08-04, 첫 커밋)부터
@@ -57,7 +57,7 @@ git rev-list --count e1a9c79..HEAD   # 20
 
 | 항목 | 정리 전 | 정리 후 |
 |---|---|---|
-| 완결 보장 시나리오 | 여러 경로가 부분 구현 | ImagePullBackOff 1개를 계약 테스트로 고정 |
+| 계약 테스트로 확인한 시나리오 | 여러 경로가 부분 구현 | ImagePullBackOff 1개를 계약 테스트로 고정 |
 | `make demo` | 실행 실패 (없는 파일 참조) | 86개 계약 테스트 통과 |
 | 전체 테스트 | — | 294개 통과 (핵심 주장은 속성 테스트로 증명) |
 | 운영 데이터 계층 | 별도 저장소(`k8s-ops-min`)에 분산 | 정본에 흡수 — 카탈로그 79개 통과 |
