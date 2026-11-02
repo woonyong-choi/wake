@@ -13,6 +13,8 @@ import pytest
         ("refactor(runtime): 미사용 세션 코드 제거", 0),
         ("fix: 실행 / 오류", 1),
         ("fix(repo): fix startup", 1),
+        ("docs(docs): " + "가" * 70 + "추가", 0),
+        ("docs(docs): " + "가" * 71 + "추가", 1),
     ],
 )
 def test_existing_commit_hook_uses_current_subject_contract(
