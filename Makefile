@@ -48,7 +48,7 @@ banned-name-check: ## KIT_BANNED_NAMES 목록으로 추적 파일 검사
 	python3 scripts/banned-name-check.py --tracked
 
 gate-backend: ## Backend와 manifest 전체 gate
-	bash scripts/test.sh
+	python3 scripts/secret-check-environment.py
 	bash scripts/manifest-check.sh
 
 gate-frontend: ## Frontend 전체 gate

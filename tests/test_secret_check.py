@@ -39,6 +39,11 @@ def repository(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path
     names = tmp_path / "names.txt"
     names.write_text("synthetic-denied-marker\n")
     monkeypatch.setenv("KIT_BANNED_NAMES", str(names))
+    for key in ("user.name", "user.email"):
+        identity = subprocess.run(["git", "config", "--get", key], cwd=repo, capture_output=True)
+        if identity.returncode or not identity.stdout.strip():
+            shutil.rmtree(repo)
+            pytest.skip("synthetic commits require the current user's Git identity")
     _commit(repo)
     _run(repo, "git", "branch", "baseline")
     try:
