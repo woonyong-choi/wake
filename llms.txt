@@ -1,4 +1,4 @@
-# K8s Clue
+# Wake
 
 > Kubernetes 장애 증거를 읽기 전용으로 수집하고, 규칙으로 원인을 판정한 뒤 허용된 변경만 GitHub Draft PR로 제안합니다.
 
@@ -6,12 +6,12 @@
 
 ## Docs
 
-- [시작](https://raw.githubusercontent.com/woonyong-choi/k8sSeam/main/docs/PROJECT-MAP.md)
-- [제품 완성 계획](https://raw.githubusercontent.com/woonyong-choi/k8sSeam/main/docs/PYTHON-FIRST-PLAN.md)
-- [설계](https://raw.githubusercontent.com/woonyong-choi/k8sSeam/main/docs/design.md)
-- [안전 계약](https://raw.githubusercontent.com/woonyong-choi/k8sSeam/main/docs/GOLDEN-PATH.md)
-- [수집 완전성](https://raw.githubusercontent.com/woonyong-choi/k8sSeam/main/docs/collection-contract.md)
-- [메타데이터 카탈로그](https://raw.githubusercontent.com/woonyong-choi/k8sSeam/main/docs/metadata-catalog.md)
-- [명세](https://raw.githubusercontent.com/woonyong-choi/k8sSeam/main/docs/catalog-api.md)
-- [품질 검사 SQL](https://raw.githubusercontent.com/woonyong-choi/k8sSeam/main/docs/sql-quality-checks.md)
-- [기여 이력](https://raw.githubusercontent.com/woonyong-choi/k8sSeam/main/docs/personal-extension.md)
+- [시작](https://raw.githubusercontent.com/woonyong-choi/wake/main/docs/PROJECT-MAP.md)
+- [제품 완성 계획](https://raw.githubusercontent.com/woonyong-choi/wake/main/docs/PYTHON-FIRST-PLAN.md)
+- [설계](https://raw.githubusercontent.com/woonyong-choi/wake/main/docs/design.md)
+- [안전 계약](https://raw.githubusercontent.com/woonyong-choi/wake/main/docs/GOLDEN-PATH.md)
+- [수집 완전성](https://raw.githubusercontent.com/woonyong-choi/wake/main/docs/collection-contract.md)
+- [메타데이터 카탈로그](https://raw.githubusercontent.com/woonyong-choi/wake/main/docs/metadata-catalog.md)
+- [명세](https://raw.githubusercontent.com/woonyong-choi/wake/main/docs/catalog-api.md)
+- [품질 검사 SQL](https://raw.githubusercontent.com/woonyong-choi/wake/main/docs/sql-quality-checks.md)
+- [기여 이력](https://raw.githubusercontent.com/woonyong-choi/wake/main/docs/personal-extension.md)
