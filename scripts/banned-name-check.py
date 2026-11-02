@@ -1,7 +1,11 @@
 """Check staged additions and a message, --range history, or --tracked files.
 
-KIT_BANNED_NAMES must name a nonempty UTF-8 list of literal names, one per line.
-Blank lines and lines starting with # are ignored. Failures exit 1 without values.
+KIT_BANNED_NAMES must name a nonempty UTF-8 list (optional BOM), one name per line.
+Blank lines and lines starting with # are ignored. Content is scanned as UTF-8
+and UTF-16/32 in both byte orders, with or without BOM, including binary data.
+Other encodings and compressed data are not decoded. Invalid sequences become
+replacement characters; binary files are not rejected solely for their encoding.
+Failures exit 1; invalid arguments exit 2. Diagnostics never include input values.
 """
 
 from __future__ import annotations
@@ -11,6 +15,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import NoReturn
 
 _DIFF_OPTIONS = (
     "--no-ext-diff",
@@ -29,8 +34,14 @@ class BannedNameError(Exception):
     pass
 
 
+class _ArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> NoReturn:
+        self.print_usage(sys.stderr)
+        self.exit(2, "banned-name check: invalid arguments\n")
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = _ArgumentParser(prog="banned-name-check.py", description=__doc__)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("message", nargs="?", type=Path)
     mode.add_argument("--range", dest="revision_range")
@@ -66,7 +77,7 @@ def _load_names() -> tuple[str, ...]:
         raise BannedNameError("banned-name check: KIT_BANNED_NAMES is required")
     names = tuple(
         line.strip().casefold()
-        for line in Path(path).read_text(encoding="utf-8").splitlines()
+        for line in Path(path).read_text(encoding="utf-8-sig").splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     )
     if not names:
@@ -79,27 +90,47 @@ def _git(*args: str) -> bytes:
 
 
 def _check(names: tuple[str, ...], content: bytes, source: str) -> None:
-    text = content.decode("utf-8", errors="replace").casefold()
-    if any(name in text for name in names):
-        raise BannedNameError(f"banned-name check: forbidden name in {source}")
+    for encoding, width in (
+        ("utf-8", 1),
+        ("utf-16-le", 2),
+        ("utf-16-be", 2),
+        ("utf-32-le", 4),
+        ("utf-32-be", 4),
+    ):
+        # Git splits diffs on byte LF, which can leave partial UTF-16/32 units.
+        for offset in range(width):
+            text = content[offset:].decode(encoding, errors="replace").casefold()
+            if any(name in text for name in names):
+                raise BannedNameError(f"banned-name check: forbidden name in {source}")
 
 
 def _check_patch(names: tuple[str, ...], patch: bytes) -> None:
     in_hunk = False
+    added: list[bytes] = []
     for line in patch.split(b"\n"):
+        if in_hunk and line.startswith(b"+"):
+            added.append(line[1:])
+            continue
+        if added:
+            _check(names, b"\n".join(added), "added content")
+            added.clear()
         if line.startswith(b"diff --git "):
             in_hunk = False
         elif line.startswith(b"@@ "):
             in_hunk = True
-        elif in_hunk and line.startswith(b"+"):
-            _check(names, line[1:], "added content")
+    if added:
+        _check(names, b"\n".join(added), "added content")
 
 
 def _check_range(names: tuple[str, ...], revision_range: str) -> None:
     commits = _git("rev-list", "--end-of-options", revision_range).splitlines()
     for commit in commits:
         revision = commit.decode("ascii")
-        _check(names, _git("show", "-s", "--format=%B", revision), "commit message")
+        _check(
+            names,
+            _git("show", "-s", "--encoding=UTF-8", "--format=%B", revision),
+            "commit message",
+        )
         _check_patch(
             names,
             _git("diff-tree", "--root", "-m", "-r", "-p", *_DIFF_OPTIONS, revision),

@@ -225,3 +225,136 @@ def test_tracked_check_from_subdirectory_scans_repository_root(repository: Path)
     _git(repository, "add", "content.txt")
 
     _assert_rejected(_check(repository / "scripts", "--tracked"))
+
+
+@pytest.mark.parametrize(
+    "encoding", ["utf-16", "utf-16-le", "utf-16-be", "utf-32", "utf-32-le", "utf-32-be"]
+)
+def test_encoded_names_rejected_in_hook_tracked_message_and_range(
+    repository: Path, encoding: str
+) -> None:
+    content = repository / "content.txt"
+    content.write_bytes(("safe\n" + MARKER.upper() + "\n").encode(encoding))
+    _git(repository, "add", "content.txt")
+
+    _assert_rejected(_commit(repository))
+    _assert_rejected(_check(repository, "--tracked"))
+    _assert_rejected(_check(repository, str(content)))
+
+    names = Path(os.environ["KIT_BANNED_NAMES"])
+    names.write_text("another-synthetic-marker\n")
+    assert _commit(repository).returncode == 0
+    names.write_text(MARKER + "\n")
+    _assert_rejected(_check(repository, "--range", "HEAD"))
+
+
+@pytest.mark.parametrize("encoding", ["UTF-16", "UTF-32", "ISO-8859-1"])
+def test_range_ignores_git_log_output_encoding(repository: Path, encoding: str) -> None:
+    marker = MARKER + "-합성"
+    names = Path(os.environ["KIT_BANNED_NAMES"])
+    names.write_text("another-synthetic-marker\n")
+    assert _commit(repository, SUBJECT + "\n\n" + marker).returncode == 0
+    names.write_text(marker + "\n")
+    _assert_rejected(_check(repository, "--range", "HEAD"))
+    _git(repository, "config", "i18n.logOutputEncoding", encoding)
+
+    _assert_rejected(_check(repository, "--range", "HEAD"))
+
+
+def test_bom_list_first_name_rejected_in_hook_tracked_and_range(repository: Path) -> None:
+    names = Path(os.environ["KIT_BANNED_NAMES"])
+    names.write_text(MARKER + "\n", encoding="utf-8-sig")
+    content = repository / "content.txt"
+    content.write_text(MARKER)
+    _git(repository, "add", "content.txt")
+
+    _assert_rejected(_commit(repository))
+    _assert_rejected(_check(repository, "--tracked"))
+
+    names.write_text("another-synthetic-marker\n")
+    assert _commit(repository).returncode == 0
+    names.write_text(MARKER + "\n", encoding="utf-8-sig")
+    _assert_rejected(_check(repository, "--range", "HEAD"))
+
+
+@pytest.mark.parametrize("content", ["", "# synthetic comment\n", " \n\t"])
+def test_bom_list_without_names_fails_closed(repository: Path, content: str) -> None:
+    Path(os.environ["KIT_BANNED_NAMES"]).write_text(content, encoding="utf-8-sig")
+
+    _assert_rejected(_commit(repository))
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--unknown={private}"],
+        ["message", "{private}"],
+        ["--tracked", "{private}"],
+        ["--range", "{private}", "--tracked"],
+        ["--tracked={private}"],
+        ["--range"],
+    ],
+)
+def test_cli_parse_errors_do_not_disclose_inputs(repository: Path, args: list[str]) -> None:
+    private = "/synthetic-private-path/" + MARKER
+    result = _check(repository, *(arg.format(private=private) for arg in args))
+
+    assert result.returncode == 2
+    assert private not in result.stdout + result.stderr
+    assert MARKER not in result.stdout + result.stderr
+    assert "banned-name check: invalid arguments" in result.stderr
+
+
+def test_cli_help_preserves_static_usage(repository: Path) -> None:
+    result = _check(repository, "--help")
+
+    assert result.returncode == 0
+    assert "usage: banned-name-check.py" in result.stdout
+    assert all(option in result.stdout for option in ("--range", "--tracked", "message"))
+    assert result.stderr == ""
+
+
+@pytest.mark.parametrize("encoding", ["utf-16-le", "utf-16-be", "utf-32-le", "utf-32-be"])
+def test_encoded_names_with_lf_byte_inside_character_are_rejected(
+    repository: Path, encoding: str
+) -> None:
+    marker = "synthetic-\u0a61-\u610a-name"
+    Path(os.environ["KIT_BANNED_NAMES"]).write_text(marker + "\n")
+    (repository / "content.txt").write_bytes(marker.upper().encode(encoding))
+    _git(repository, "add", "content.txt")
+
+    result = _commit(repository)
+
+    _assert_rejected(result)
+    assert marker not in result.stderr.casefold()
+
+
+@pytest.mark.parametrize("encoding", ["utf-16-le", "utf-16-be", "utf-32-le", "utf-32-be"])
+def test_encoded_hook_uses_index_and_allows_name_removal(repository: Path, encoding: str) -> None:
+    names = Path(os.environ["KIT_BANNED_NAMES"])
+    names.write_text("another-synthetic-marker\n")
+    content = repository / "content.txt"
+    content.write_bytes((MARKER + "\n").encode(encoding))
+    _git(repository, "add", "content.txt")
+    assert _commit(repository).returncode == 0
+    names.write_text(MARKER + "\n")
+    content.write_bytes("safe\n".encode(encoding))
+    _git(repository, "add", "content.txt")
+    content.write_bytes((MARKER + "\n").encode(encoding))
+
+    assert _commit(repository).returncode == 0
+
+    _git(repository, "add", "content.txt")
+    content.write_bytes("safe\n".encode(encoding))
+    _assert_rejected(_commit(repository))
+
+
+def test_normal_binary_image_is_allowed(repository: Path) -> None:
+    shutil.copyfile(ROOT / "docs" / "figure.png", repository / "image.png")
+    _git(repository, "add", "image.png")
+
+    result = _commit(repository)
+
+    assert result.returncode == 0, result.stderr
+    assert _check(repository, "--tracked").returncode == 0
+    assert _check(repository, "--range", "HEAD").returncode == 0
