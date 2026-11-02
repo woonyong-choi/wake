@@ -1,10 +1,10 @@
-# K8s Clue
+# Wake
 
 Kubernetes 장애 증거를 읽기 전용으로 수집하고, 규칙으로 원인을 판정한 뒤 허용된 변경만 GitHub Draft PR로 제안합니다.
 
 클러스터를 직접 변경하거나 PR을 자동 병합하지 않습니다. 예를 들어 ImagePullBackOff 증거에서 잘못된 이미지 태그를 판별하면, 승인된 manifest의 image 값만 바꾸는 수정안을 구성합니다. 증거가 부족하거나 승인된 변경 대상에 충돌이 생기면 PR 생성을 중단합니다.
 
-[![CI](https://github.com/woonyong-choi/k8sSeam/actions/workflows/ci.yml/badge.svg)](https://github.com/woonyong-choi/k8sSeam/actions/workflows/ci.yml)
+[![CI](https://github.com/woonyong-choi/wake/actions/workflows/ci.yml/badge.svg)](https://github.com/woonyong-choi/wake/actions/workflows/ci.yml)
 
 ![kind에서 ErrImagePull을 관측하고 별도의 계약 테스트 24 + 29 + 27 + 6건을 실행한 기록](docs/demo.gif)
 
@@ -18,8 +18,8 @@ Kubernetes 장애 증거를 읽기 전용으로 수집하고, 규칙으로 원�
 Python 3.13과 [uv](https://docs.astral.sh/uv/getting-started/installation/)가 필요합니다. 아래는 클러스터나 GitHub를 변경하지 않고 대표 경로의 계약 테스트를 실행하는 방법입니다. 제품 전체를 설치하고 외부 연동까지 확인하는 절차는 아닙니다.
 
 ```sh
-git clone https://github.com/woonyong-choi/k8sSeam.git
-cd k8sSeam
+git clone https://github.com/woonyong-choi/wake.git
+cd wake
 uv sync --all-groups
 DEMO_KIND_CONTEXT= DEMO_SKIP_PR=1 make demo
 ```
@@ -40,9 +40,9 @@ DEMO_KIND_CONTEXT= DEMO_SKIP_PR=1 make demo
 
 ## 해결하는 문제
 
-장애 증거를 수집한 시점과 수정안을 검토하는 시점 사이에 Git 저장소가 바뀔 수 있습니다. K8s Clue는 증거와 대상 리소스를 연결하고, 원인 판정의 근거와 수정할 필드를 제한한 뒤, PR 생성 직전에 base SHA를 다시 확인합니다. 운영자는 이 근거와 변경 내용을 보고 병합 여부를 결정합니다.
+장애 증거를 수집한 시점과 수정안을 검토하는 시점 사이에 Git 저장소가 바뀔 수 있습니다. Wake는 증거와 대상 리소스를 연결하고, 원인 판정의 근거와 수정할 필드를 제한한 뒤, PR 생성 직전에 base SHA를 다시 확인합니다. 운영자는 이 근거와 변경 내용을 보고 병합 여부를 결정합니다.
 
-`kubectl`로 Pod와 Event를 직접 확인하고 Git 변경안을 작성하는 방법도 가능합니다. K8s Clue는 그 과정에서 증거 참조, 규칙 버전, 허용 필드와 PR 생성 조건을 코드와 계약 테스트로 관리합니다. 임의의 장애를 해결하는 범용 도구는 아니며, 현재 재현과 계약 검사 기록이 있는 대표 시나리오는 ImagePullBackOff 하나입니다.
+`kubectl`로 Pod와 Event를 직접 확인하고 Git 변경안을 작성하는 방법도 가능합니다. Wake는 그 과정에서 증거 참조, 규칙 버전, 허용 필드와 PR 생성 조건을 코드와 계약 테스트로 관리합니다. 임의의 장애를 해결하는 범용 도구는 아니며, 현재 재현과 계약 검사 기록이 있는 대표 시나리오는 ImagePullBackOff 하나입니다.
 
 Argo CD 같은 GitOps 배포 도구를 대신하지도 않습니다. 이 저장소의 역할은 증거를 바탕으로 제한된 변경안을 제안하고 이후 관측 결과를 검증하는 것입니다. 실제 PR 생성부터 병합·배포·회복까지 연결한 종단 검증은 아직 끝나지 않았습니다.
 
@@ -82,7 +82,7 @@ RCA 카탈로그는 29개 rule과 87개 candidate를 사용합니다. [합성 �
 
 인벤토리 전체의 삭제 처리와 사건 이력의 삭제 관측은 서로 다른 기능입니다. 현재 사건 이력은 완전성이 확인된 namespace의 Pod 수집에서 빠진 객체만 삭제로 인정합니다. 범위 제한 수집이므로 이력 전체 상태는 `partial`입니다. 세부 조건은 [Project Map](docs/PROJECT-MAP.md)에 있습니다.
 
-후속 작업은 [GitOps 증거 연결 #22](https://github.com/woonyong-choi/k8sSeam/issues/22)에서 추적합니다. 저장·통신 호환 때문에 남아 있는 `kyro`·`KYRO` 식별자의 마이그레이션 경로는 아직 정하지 않았습니다. 안정된 명령·설정·데이터 형식의 호환성을 보장하는 단계는 아닙니다.
+후속 작업은 [GitOps 증거 연결 #22](https://github.com/woonyong-choi/wake/issues/22)에서 추적합니다. 저장·통신 호환 때문에 남아 있는 `kyro`·`KYRO` 식별자의 마이그레이션 경로는 아직 정하지 않았습니다. 안정된 명령·설정·데이터 형식의 호환성을 보장하는 단계는 아닙니다.
 
 ## 문서
 
