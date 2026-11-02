@@ -115,3 +115,7 @@ catalog-bench: ## 검사 SQL 실행시간을 인덱스 유무로 비교
 
 catalog-test: ## 카탈로그 계층 테스트 (DB 필요, 없으면 건너뜀)
 	uv run pytest tests/catalog -q
+
+.PHONY: migration-roundtrip
+migration-roundtrip: ## 격리 PostgreSQL 17에서 기준선 head→base→head 검사
+	WAKE_MIGRATION_ROUNDTRIP=1 uv run pytest --noconftest -s -q --tb=short tests/test_migration_roundtrip.py
