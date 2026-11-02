@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+python3 "$(dirname "${BASH_SOURCE[0]}")/banned-name-check.py" "$@"
+
 python3 - "$@" <<'PY'
 import re
 import subprocess

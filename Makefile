@@ -7,7 +7,7 @@ ENV_TEMPLATE ?= config/env/app.env.example
 
 export IMAGE_NAME
 
-.PHONY: help setup env sync doctor lint format test manifest-check product-brand-boundary-check gate gate-backend gate-frontend gate-fast events services rca-eval event-bus-equivalence build-image demo clean catalog-up catalog-down catalog-schema catalog-run catalog-verify catalog-sql catalog-bench catalog-test
+.PHONY: help setup env sync doctor lint format test manifest-check product-brand-boundary-check banned-name-check gate gate-backend gate-frontend gate-fast events services rca-eval event-bus-equivalence build-image demo clean catalog-up catalog-down catalog-schema catalog-run catalog-verify catalog-sql catalog-bench catalog-test
 
 help: ## 사용 가능한 명령어 출력
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-24s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -43,6 +43,9 @@ manifest-check: ## Helm과 Kubernetes manifest 검증
 product-brand-boundary-check: ## 과거 제품명과 개인 운영 경계 검사
 	node scripts/verify-product-brand-boundary.mjs
 
+banned-name-check: ## KIT_BANNED_NAMES 목록으로 추적 파일 검사
+	python3 scripts/banned-name-check.py --tracked
+
 gate-backend: ## Backend와 manifest 전체 gate
 	bash scripts/test.sh
 	bash scripts/manifest-check.sh
@@ -52,7 +55,7 @@ gate-frontend: ## Frontend 전체 gate
 	cd frontend && npm run check
 	test -s frontend/dist/index.html
 
-gate: gate-backend gate-frontend ## 저장소 전체 gate
+gate: banned-name-check gate-backend gate-frontend ## 저장소 전체 gate
 
 gate-fast: ## pre-push 빠른 정적 검사
 	uv run python -m compileall -q src scripts
