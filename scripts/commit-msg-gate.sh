@@ -12,7 +12,11 @@ if len(sys.argv) == 3 and sys.argv[1] == "--range":
         ["git", "log", "--no-merges", "--format=%s", sys.argv[2]], text=True
     ).splitlines()
 elif len(sys.argv) == 2:
-    subjects = Path(sys.argv[1]).read_text().splitlines()[:1] or [""]
+    subjects = [next(
+        (line for line in Path(sys.argv[1]).read_text().splitlines()
+         if line.strip() and not line.startswith("#")),
+        "",
+    )]
 else:
     raise SystemExit("usage: commit-msg-gate.sh <message-file> or --range <git-range>")
 
@@ -21,7 +25,7 @@ pattern = re.compile(
     r"\([a-z][a-z0-9-]*\)!?: (.+)"
 )
 for subject in subjects:
-    match = pattern.fullmatch(subject)
+    match = pattern.fullmatch(re.sub(r" \(#\d+\)$", "", subject))
     description = match.group(1) if match else ""
     if not (
         description
