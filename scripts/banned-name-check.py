@@ -5,12 +5,15 @@ Blank lines and lines starting with # are ignored. Content is scanned as UTF-8
 and UTF-16/32 in both byte orders, with or without BOM, including binary data.
 Other encodings and compressed data are not decoded. Invalid sequences become
 replacement characters; binary files are not rejected solely for their encoding.
+Changed blobs are decoded in full before comparing logical lines against the base.
+Unchanged lines and removals are allowed; changed lines containing a name are rejected.
 Failures exit 1; invalid arguments exit 2. Diagnostics never include input values.
 """
 
 from __future__ import annotations
 
 import argparse
+import difflib
 import os
 import subprocess
 import sys
@@ -22,12 +25,11 @@ _DIFF_OPTIONS = (
     "--no-textconv",
     "--no-renames",
     "--no-color",
-    "--text",
-    "--unified=0",
-    "--output-indicator-new=+",
-    "--output-indicator-old=-",
-    "--output-indicator-context= ",
+    "--raw",
+    "-z",
+    "--no-abbrev",
 )
+_ENCODINGS = (("utf-8", 1), ("utf-16-le", 2), ("utf-16-be", 2), ("utf-32-le", 4), ("utf-32-be", 4))
 
 
 class BannedNameError(Exception):
@@ -56,12 +58,7 @@ def main() -> int:
         else:
             if args.message is not None:
                 _check(names, args.message.read_bytes(), "commit message")
-            _check_patch(names, _git("diff", "--cached", *_DIFF_OPTIONS))
-            _check(
-                names,
-                _git("diff", "--cached", "--diff-filter=ACMRT", "--name-only", "-z"),
-                "staged paths",
-            )
+            _check_changes(names, _git("diff", "--cached", *_DIFF_OPTIONS), "staged paths")
     except BannedNameError as error:
         print(str(error), file=sys.stderr)
         return 1
@@ -90,36 +87,50 @@ def _git(*args: str) -> bytes:
 
 
 def _check(names: tuple[str, ...], content: bytes, source: str) -> None:
-    for encoding, width in (
-        ("utf-8", 1),
-        ("utf-16-le", 2),
-        ("utf-16-be", 2),
-        ("utf-32-le", 4),
-        ("utf-32-be", 4),
-    ):
-        # Git splits diffs on byte LF, which can leave partial UTF-16/32 units.
+    for encoding, width in _ENCODINGS:
         for offset in range(width):
             text = content[offset:].decode(encoding, errors="replace").casefold()
             if any(name in text for name in names):
                 raise BannedNameError(f"banned-name check: forbidden name in {source}")
 
 
-def _check_patch(names: tuple[str, ...], patch: bytes) -> None:
-    in_hunk = False
-    added: list[bytes] = []
-    for line in patch.split(b"\n"):
-        if in_hunk and line.startswith(b"+"):
-            added.append(line[1:])
+def _check_changes(names: tuple[str, ...], changes: bytes, source: str) -> None:
+    records = changes.split(b"\0")
+    for index in range(0, len(records) - 1, 2):
+        old_mode, new_mode, old_oid, new_oid, status = records[index].split()
+        if status == b"D":
             continue
-        if added:
-            _check(names, b"\n".join(added), "added content")
-            added.clear()
-        if line.startswith(b"diff --git "):
-            in_hunk = False
-        elif line.startswith(b"@@ "):
-            in_hunk = True
-    if added:
-        _check(names, b"\n".join(added), "added content")
+        _check(names, records[index + 1], source)
+        if status == b"U":
+            raise BannedNameError("banned-name check: unresolved index")
+        before = _read_blob(old_mode.lstrip(b":"), old_oid)
+        after = _read_blob(new_mode, new_oid)
+        _check_added_content(names, before, after)
+
+
+def _read_blob(mode: bytes, oid: bytes) -> bytes:
+    if mode == b"000000":
+        return b""
+    if mode == b"160000":
+        return b"Subproject commit " + oid + b"\n"
+    return _git("cat-file", "blob", oid.decode("ascii"))
+
+
+def _check_added_content(names: tuple[str, ...], before: bytes, after: bytes) -> None:
+    for encoding, width in _ENCODINGS:
+        for offset in range(width):
+            old_text = before[offset:].decode(encoding, errors="replace").casefold()
+            new_text = after[offset:].decode(encoding, errors="replace").casefold()
+            if not any(name in new_text for name in names):
+                continue
+            old_lines = old_text.split("\n")
+            new_lines = new_text.split("\n")
+            changes = difflib.SequenceMatcher(None, old_lines, new_lines, autojunk=False)
+            for tag, _, _, start, end in changes.get_opcodes():
+                if tag in {"insert", "replace"}:
+                    added = "\n".join(new_lines[start:end])
+                    if any(name in added for name in names):
+                        raise BannedNameError("banned-name check: forbidden name in added content")
 
 
 def _check_range(names: tuple[str, ...], revision_range: str) -> None:
@@ -131,22 +142,9 @@ def _check_range(names: tuple[str, ...], revision_range: str) -> None:
             _git("show", "-s", "--encoding=UTF-8", "--format=%B", revision),
             "commit message",
         )
-        _check_patch(
+        _check_changes(
             names,
-            _git("diff-tree", "--root", "-m", "-r", "-p", *_DIFF_OPTIONS, revision),
-        )
-        _check(
-            names,
-            _git(
-                "diff-tree",
-                "--root",
-                "-m",
-                "-r",
-                "--diff-filter=ACMRT",
-                "--name-only",
-                "-z",
-                revision,
-            ),
+            _git("diff-tree", "--root", "--no-commit-id", "-m", "-r", *_DIFF_OPTIONS, revision),
             "committed paths",
         )
 
