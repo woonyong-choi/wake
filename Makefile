@@ -3,11 +3,14 @@ SHELL := bash
 .DEFAULT_GOAL := help
 
 IMAGE_NAME ?= clue:local
+SECRET_BASE ?= origin/main
+override SECRET_BASE := $(value SECRET_BASE)
+export SECRET_BASE
 ENV_TEMPLATE ?= config/env/app.env.example
 
 export IMAGE_NAME
 
-.PHONY: help setup env sync doctor lint format test manifest-check product-brand-boundary-check banned-name-check gate gate-backend gate-frontend gate-fast events services rca-eval event-bus-equivalence build-image demo clean catalog-up catalog-down catalog-schema catalog-run catalog-verify catalog-sql catalog-bench catalog-test
+.PHONY: help setup env sync doctor lint format test manifest-check product-brand-boundary-check banned-name-check secret-check gate gate-backend gate-frontend gate-fast events services rca-eval event-bus-equivalence build-image demo clean catalog-up catalog-down catalog-schema catalog-run catalog-verify catalog-sql catalog-bench catalog-test
 
 help: ## 사용 가능한 명령어 출력
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-24s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -47,7 +50,7 @@ banned-name-check: ## KIT_BANNED_NAMES 목록으로 추적 파일 검사
 	python3 scripts/banned-name-check.py --tracked
 
 gate-backend: ## Backend와 manifest 전체 gate
-	bash scripts/test.sh
+	python3 scripts/secret-check-environment.py
 	bash scripts/manifest-check.sh
 
 gate-frontend: ## Frontend 전체 gate
@@ -55,7 +58,10 @@ gate-frontend: ## Frontend 전체 gate
 	cd frontend && npm run check
 	test -s frontend/dist/index.html
 
-gate: banned-name-check gate-backend gate-frontend ## 저장소 전체 gate
+secret-check: ## 기준 커밋 이후와 현재 추적 변경의 비밀 값 검사
+	@python3 scripts/banned-name-check.py --secrets --changes="$$SECRET_BASE"
+
+gate: banned-name-check secret-check gate-backend gate-frontend ## 저장소 전체 gate
 
 gate-fast: ## pre-push 빠른 정적 검사
 	uv run python -m compileall -q src scripts

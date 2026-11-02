@@ -492,3 +492,30 @@ def test_range_checks_merge_against_each_parent(repository: Path) -> None:
     names.write_text(MARKER + "\n")
 
     _assert_rejected(_check(repository, "--range", "HEAD^!"))
+
+
+@pytest.mark.parametrize("relative", ["true", "false"])
+@pytest.mark.parametrize("subdirectory", [False, True])
+@pytest.mark.parametrize("mode", ["staged", "tracked", "history"])
+@pytest.mark.parametrize("has_name", [False, True])
+def test_name_scan_is_independent_of_diff_relative_and_cwd(
+    repository: Path, relative: str, subdirectory: bool, mode: str, has_name: bool
+) -> None:
+    content = repository / "root content.txt"
+    content.write_text(MARKER if has_name else "safe")
+    _git(repository, "add", content.name)
+    if mode == "history":
+        names = Path(os.environ["KIT_BANNED_NAMES"])
+        names.write_text("another-synthetic-marker\n")
+        assert _commit(repository).returncode == 0
+        names.write_text(MARKER + "\n")
+    _git(repository, "config", "diff.relative", relative)
+    cwd = repository / "scripts" if subdirectory else repository
+    args = {"staged": [], "tracked": ["--tracked"], "history": ["--range", "HEAD"]}[mode]
+
+    result = _check(cwd, *args)
+
+    if has_name:
+        _assert_rejected(result)
+    else:
+        assert result.returncode == 0
