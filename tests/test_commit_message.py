@@ -10,6 +10,13 @@ import pytest
     ("subject", "returncode"),
     [
         ("fix(repo): 초기 실행 오류 수정", 0),
+        ("fix(repo): 오류 수정 (#12)", 0),
+        ("# 주석\n\nfix(repo): 오류 수정", 0),
+        ("Merge branch x", 1),
+        ("# 주석\n\n", 1),
+        ("\nfix: 오류 수정\nfix(repo): 오류 수정", 1),
+        ("docs(docs): " + "가" * 70 + "추가 (#12)", 0),
+        ("docs(docs): " + "가" * 71 + "추가 (#12)", 1),
         ("refactor(runtime): 미사용 세션 코드 제거", 0),
         ("fix: 실행 / 오류", 1),
         ("fix(repo): fix startup", 1),
