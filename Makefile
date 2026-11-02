@@ -4,6 +4,8 @@ SHELL := bash
 
 IMAGE_NAME ?= clue:local
 SECRET_BASE ?= origin/main
+override SECRET_BASE := $(value SECRET_BASE)
+export SECRET_BASE
 ENV_TEMPLATE ?= config/env/app.env.example
 
 export IMAGE_NAME
@@ -57,7 +59,7 @@ gate-frontend: ## Frontend 전체 gate
 	test -s frontend/dist/index.html
 
 secret-check: ## 기준 커밋 이후와 현재 추적 변경의 비밀 값 검사
-	python3 scripts/banned-name-check.py --secrets --changes "$(SECRET_BASE)"
+	@python3 scripts/banned-name-check.py --secrets --changes="$$SECRET_BASE"
 
 gate: banned-name-check secret-check gate-backend gate-frontend ## 저장소 전체 gate
 

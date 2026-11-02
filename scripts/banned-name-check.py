@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import NoReturn
 
 _DIFF_OPTIONS = (
+    "--no-relative",
     "--no-ext-diff",
     "--no-textconv",
     "--no-renames",
@@ -177,7 +178,10 @@ def _load_names() -> tuple[str, ...]:
 
 
 def _git(*args: str) -> bytes:
-    return subprocess.check_output(["git", *args], stderr=subprocess.PIPE)
+    root = subprocess.check_output(
+        ["git", "rev-parse", "--show-toplevel"], stderr=subprocess.PIPE
+    ).rstrip(b"\n")
+    return subprocess.check_output(["git", *args], cwd=os.fsdecode(root), stderr=subprocess.PIPE)
 
 
 def _check(names: tuple[str, ...], content: bytes, source: str) -> None:

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import os
 import random
 import shutil
 import string
 import subprocess
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -256,3 +258,86 @@ def test_hidden_index_flags_fail_closed(repository: Path, flag: str) -> None:
     _run(repository, "git", "update-index", flag, "content with spaces.txt")
     (repository / "content with spaces.txt").write_text(FAKE_TOKEN)
     _check(repository, "--changes", "baseline", expected=1)
+
+
+@pytest.mark.parametrize("relative", ["true", "false"])
+@pytest.mark.parametrize("subdirectory", [False, True])
+@pytest.mark.parametrize("state", ["staged", "unstaged", "history"])
+@pytest.mark.parametrize("has_secret", [False, True])
+def test_changes_scan_is_independent_of_diff_relative_and_cwd(
+    repository: Path, relative: str, subdirectory: bool, state: str, has_secret: bool
+) -> None:
+    _stage(repository, b"initial safe content\n")
+    _commit(repository)
+    content = FAKE_TOKEN.encode() if has_secret else b"updated safe content"
+    _stage(repository, content)
+    if state == "unstaged":
+        _run(repository, "git", "restore", "--staged", "content with spaces.txt")
+    elif state == "history":
+        tree = _run(repository, "git", "write-tree").stdout.strip().decode("ascii")
+        parent = _run(repository, "git", "rev-parse", "HEAD").stdout.strip().decode("ascii")
+        commit = _run(repository, "git", "commit-tree", tree, "-p", parent, "-m", SUBJECT)
+        _run(repository, "git", "update-ref", "HEAD", commit.stdout.strip().decode("ascii"))
+    _run(repository, "git", "config", "diff.relative", relative)
+    cwd = repository / "scripts" if subdirectory else repository
+
+    _check(cwd, "--changes", "baseline", expected=int(has_secret))
+
+
+@pytest.mark.parametrize("relative", ["true", "false"])
+@pytest.mark.parametrize("has_secret", [False, True])
+def test_direct_hook_from_subdirectory_checks_root_staged_content(
+    repository: Path, relative: str, has_secret: bool
+) -> None:
+    _stage(repository, FAKE_TOKEN.encode() if has_secret else b"safe staged content")
+    _run(repository, "git", "config", "diff.relative", relative)
+    message = repository / ".git" / "synthetic-message"
+    message.write_text(SUBJECT + "\n")
+
+    _run(
+        repository / "scripts",
+        "bash",
+        "commit-msg-gate.sh",
+        str(message),
+        expected=int(has_secret),
+    )
+
+
+@pytest.mark.parametrize("source", ["argument", "environment"])
+@pytest.mark.parametrize("payload", ["token", "expansions", "quotes", "option"])
+def test_make_invalid_base_is_literal_and_redacted(
+    repository: Path, monkeypatch: pytest.MonkeyPatch, source: str, payload: str
+) -> None:
+    values = {
+        "token": FAKE_TOKEN,
+        "expansions": FAKE_TOKEN
+        + "$(shell touch make-expanded)$(touch shell-expanded)`touch backtick-expanded`$HOME",
+        "quotes": FAKE_TOKEN + '"; touch quote-expanded; #\n',
+        "option": "--help " + FAKE_TOKEN,
+    }
+    value = values[payload]
+    tools = repository / "tools"
+    tools.mkdir()
+    wrapper = tools / "python3"
+    wrapper.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os, sys\n"
+        "from pathlib import Path\n"
+        'Path("base-arguments.json").write_text(json.dumps(sys.argv[1:]))\n'
+        f"os.execv({sys.executable!r}, [{sys.executable!r}, *sys.argv[1:]])\n"
+    )
+    wrapper.chmod(0o700)
+    monkeypatch.setenv("PATH", str(tools) + os.pathsep + os.environ["PATH"])
+    args = ["make", "secret-check"]
+    if source == "environment":
+        monkeypatch.setenv("SECRET_BASE", value)
+    else:
+        args.append("SECRET_BASE=" + value)
+
+    result = _run(repository, *args, expected=2)
+
+    assert b"secret check: rejected or unavailable (redacted)" in result.stderr
+    assert not any(repository.glob("*-expanded"))
+    actual = json.loads((repository / "base-arguments.json").read_text())
+    if actual != ["scripts/banned-name-check.py", "--secrets", "--changes=" + value]:
+        raise AssertionError("make must pass the exact base as one option value")
