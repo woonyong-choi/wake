@@ -43,9 +43,9 @@ kubectl and each tool's web UI show the same data. Wake runs no separate collect
 
 1. Wake connects to the cluster with your kubeconfig, checks reachability, authentication, and Pod read permission, and then registers the cluster. Raw credentials such as tokens and keys are encrypted with Electron safeStorage, and the settings keep only a reference.
 2. Wake queries the Kubernetes API and the connected observability tools (Prometheus, Alertmanager, Loki, Argo CD, OpenCost) with read requests. Wake does not store Secret values and does not pass them to the AI.
-3. If you choose, Wake installs wake-agent with Helm into the `wake-system` namespace from inside the app. wake-agent is a DaemonSet that watches Nodes and Pods and leaves a heartbeat per Node as a Lease. The image is `ghcr.io/woonyong-choi/wake-agent:0.1.0` (amd64, arm64), and the chart is in `apps/wake/desktop/agent-install-charts/wake-agent-only`.
+3. If you choose, Wake installs wake-agent with Helm into the `wake-system` namespace from inside the app. wake-agent is a DaemonSet that watches Nodes and Pods and leaves a heartbeat per Node as a Lease. The image is `ghcr.io/woonyong-choi/wake-agent:0.1.1` (amd64, arm64), and the chart is in `apps/wake/desktop/agent-install-charts/wake-agent-only`.
 4. The hub inside the app keeps incidents, evidence snapshots, audit records, approval decisions, and AI conversations in the app data folder on your computer. The default retention is 90 days for incidents (after resolution), evidence, audit records, and approval decisions, 365 days for conversations, and 7 days for Events.
-5. When an AI is connected, it reads only the allowed scope through the same tool layer and only analyzes and proposes actions. A person allows or rejects each proposed change in the approval panel, and neither the AI nor an external client can approve in place of a person.
+5. When an AI is connected, it reads only the allowed scope through the same tool layer and only analyzes and proposes actions. A person allows or rejects each proposed change in the approval panel, an allow is recorded only when a person presses it in an operating-system confirmation dialog, not in an app page, and neither the AI nor an external client can approve in place of a person.
 
 Wake has no sign-up and no Wake account, contains no code that sends usage statistics, and has update checks turned off. When you connect an AI provider, Wake masks the question and the allowed tool results and then sends them to that provider. The MCP and HTTP server for external AI clients is off by default and, when turned on, listens only on `127.0.0.1`.
 
@@ -54,6 +54,8 @@ The full design is in [Architecture](spec/architecture.md), storage classes and 
 ## Status
 
 Available now: the cluster home, Resources, Network, GitOps, Events, Logs, Alerts, Incidents, per-tool views (Prometheus, Alertmanager, Argo CD, Loki), Agents, Costs, the AI panel, the terminal, and reports. AI conversations run with a Claude API key and with the subscription CLIs (`claude`, `codex`, `gemini`). OpenAI and Gemini API keys are only checked and are not used for conversations.
+
+Incidents are detected by rules. Thirteen classes are covered: OOM kills, crash loops, image pull failures, missing configuration, probe failures, scheduling failures, volume attach or mount failures, eviction and node pressure, Node NotReady, failed Jobs, stuck rollouts, rejected creates (quota or admission), and Services with no ready endpoints. Each shows a cause grade with check commands and action candidates, and closes as recovered after five minutes of consecutive healthy readings in real time.
 
 - There is no feature that carries out an approved action or creates a Draft PR. Wake records only the approval decision.
 - There is no signed and notarized release. `node kit/tools/package.mjs --app wake --unsigned` builds an unsigned DMG, but Gatekeeper blocks it on other Macs.
