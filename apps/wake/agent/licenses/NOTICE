@@ -1,0 +1,44 @@
+wake-agent container image: notices
+====================================
+
+The file /agent/agent.mjs is part of Wake. Copyright 2026 choi woo-nyong. Licensed under the Apache License,
+Version 2.0 (/licenses/LICENSE). Source: https://github.com/woonyong-choi/wake (apps/wake/agent).
+
+The image also carries these unmodified third-party files, copied from the official Docker image
+node:24-alpine (digest sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5, Alpine Linux 3.24):
+
+  /usr/local/bin/node            Node.js v24.22.3      MIT and the bundled licenses in /licenses/node.LICENSE
+                                 source: https://github.com/nodejs/node/tree/v24.22.3
+  /lib/ld-musl-*.so.1            musl 1.2.6            MIT (text below)
+                                 source: https://musl.libc.org/releases/musl-1.2.6.tar.gz
+  /usr/lib/libstdc++.so.6*       GCC 15.2.0 runtime    GPL-3.0-or-later WITH GCC-exception-3.1
+  /usr/lib/libgcc_s.so.1                               source: https://ftp.gnu.org/gnu/gcc/gcc-15.2.0/
+                                 Alpine build recipe: https://gitlab.alpinelinux.org/alpine/aports/-/tree/3.24-stable/main/gcc
+
+Written offer: for at least three years after the last distribution of this image, the licensor will provide,
+on request through https://github.com/woonyong-choi/wake/issues, a complete machine-readable copy of the corresponding source
+code of the GCC runtime libraries above (and of any other component whose license requires it), for no more than
+the cost of physically performing the distribution.
+
+musl license
+------------
+Copyright (c) 2005-2020 Rich Felker, et al.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of
+the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+GCC runtime libraries
+---------------------
+libstdc++ and libgcc_s are covered by the GNU General Public License version 3 or later with the GCC Runtime Library
+Exception version 3.1. License texts (from the GCC 15.2.0 source): /licenses/gpl-3.0.txt and
+/licenses/gcc-exception-3.1.txt

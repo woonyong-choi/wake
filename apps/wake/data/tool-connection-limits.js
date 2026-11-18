@@ -1,0 +1,2 @@
+export const TOOL_CONNECTION_TIMEOUT_MS = 120_000;
+export const TOOL_REQUEST_TIMEOUT_MS = 30_000;

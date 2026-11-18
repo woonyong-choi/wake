@@ -1,0 +1,72 @@
+{{- /* 읽기: 자기 Node와 그 Node의 Pod(watch 캐시). 쓰기: 이 namespace의 heartbeat Lease 하나뿐. Secret 권한 없음(get·list·watch 모두) */ -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wake-agent
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    app.kubernetes.io/instance: wake-agent
+    app.kubernetes.io/component: agent
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: wake-agent
+  labels:
+    app.kubernetes.io/instance: wake-agent
+    app.kubernetes.io/component: agent
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: wake-agent
+  labels:
+    app.kubernetes.io/instance: wake-agent
+    app.kubernetes.io/component: agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: wake-agent
+subjects:
+  - kind: ServiceAccount
+    name: wake-agent
+    namespace: {{ .Release.Namespace | quote }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: wake-agent
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    app.kubernetes.io/instance: wake-agent
+    app.kubernetes.io/component: agent
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "create", "update"]
+  # Lease의 ownerReferences(제거하면 Lease도 지워짐)에 넣을 DaemonSet uid
+  - apiGroups: ["apps"]
+    resources: ["daemonsets"]
+    resourceNames: ["wake-agent"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: wake-agent
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    app.kubernetes.io/instance: wake-agent
+    app.kubernetes.io/component: agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: wake-agent
+subjects:
+  - kind: ServiceAccount
+    name: wake-agent
+    namespace: {{ .Release.Namespace | quote }}

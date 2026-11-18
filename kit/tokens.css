@@ -1,0 +1,707 @@
+/*
+ * Kit design tokens
+ * Raw values for color, type, radius, spacing and motion live only in this file.
+ * Component CSS uses these names only (tools/unused-check reports color and px literals elsewhere).
+ */
+
+/* ---------- Theme-independent values ---------- */
+:root {
+  --font-native: -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", sans-serif;
+  --font-sans: var(--font-native);
+  /* Display font for titles (app-overridable: an app prepends its display face in theme.css) */
+  --font-display: var(--font-sans);
+  --font-mono: "Geist Mono Variable", "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+
+  /* Font size / line height */
+  --text-3xs: 10px;
+  --text-2xs: 11px;
+  --text-xs: 12px;   --leading-xs: 16px;
+  --text-sm: 14px;   --leading-sm: 20px;
+  --text-base: 16px; --leading-base: 24px;
+  --text-lg: 18px;
+  --text-2xl: 24px;  --leading-2xl: 32px;
+  --leading-snug: 1.375;
+
+  --text-native: 14px;        /* sidebar rows, top bar path */
+  --text-native-sm: 13px;     /* section headers, top bar identity */
+  --text-native-ident: 13.5px;
+  --leading-native: 17px;
+  --weight-regular: 400;
+  --weight-display: 450;
+  --weight-medium: 500;
+  --weight-reading: 700; /* the figure and time read off a chart */
+  --weight-section: 550;
+  --weight-semibold: 600;
+  --tracking-wide: .025em;
+  --tracking-tight: -.015em;
+
+  /* Spacing unit 4px */
+
+  --mask-ink: #000; --quote-w: 3px; --underline-w: 2px; --underline-offset: 2px;
+  --space-px: 1px; --line: 1px; /* --line: border and rule width */ --space-0_5: 2px; --space-1: 4px; --space-1_5: 6px; --space-2: 8px; --space-2_5: 10px;
+  --space-3: 12px; --space-3_5: 14px; --space-4: 16px; --space-5: 20px; --space-6: 24px; --space-7: 28px;
+  --space-8: 32px; --space-9: 36px; --space-10: 40px; --space-12: 48px; --space-16: 64px; --space-40: 160px;
+
+  /* Radius: value x squircle factor, shape is superellipse(factor) */
+  --squircle: 1.4;
+  --corner: superellipse(var(--squircle));
+  --corner-round: superellipse(1);
+  --radius-xs: 2px;
+  --radius-sm: calc(4px * var(--squircle));
+  --radius-md: calc(6px * var(--squircle));
+  --radius-lg: calc(8px * var(--squircle));
+  --radius-xl: calc(12px * var(--squircle));
+  --radius-2xl: calc(16px * var(--squircle));
+  --radius-full: 9999px;
+  /* corner roles: every border-radius in the kit and the pages is one of these (kit/tools/unused-check.mjs fails on any other); spec/rules.md#RULE-PANE lists where each goes.
+     A thing inside a rounded container takes a smaller role (or 0 when the container owns the face), never a rounder corner than the container's curve allows. */
+  --r-surface: var(--radius-face);  /* a face laid on the page: summary bar, card, notice, toast, question panel, code view on the page */
+  --r-panel: var(--radius-xl);      /* a floating panel (menu, select list, popover, tooltip, time range panel, palette) and a panel inside the side tone (settings group, card in the AI pane) */
+  --r-dialog: var(--radius-2xl);    /* a dialog, the composer, a large sheet */
+  --r-control: var(--radius-lg);    /* a button, field, search, select or segment in a form; the code view inside a container */
+  --r-control-sm: var(--radius-md); /* a small control inside another control (icon button, segment indicator, tab chip) */
+  --r-row: var(--radius-lg);        /* a row inside a panel or list (menu row, sidebar row, table row mark) */
+  --r-row-side: 8px;               /* a sidebar row: the side tone keeps the reference app's pixels (8, round), spec/rules.md#RULE-PANE */
+  --r-chip: var(--radius-sm);       /* a tag, badge, kbd, small chip */
+  --r-mark: var(--radius-xs);       /* a tiny mark (checkbox, legend swatch, inline highlight) */
+  --r-pill: var(--radius-full);     /* a pill-shaped control (toolbar search, select and pill tabs, chips in a toolbar) */
+  --r-round: var(--radius-full);    /* round only: avatar, dot, switch */
+  --r-window: var(--radius-frame);  /* every content card (center, detail, AI, report; one or several, expanded or not), all four corners: the window's corner less --window-gap, so a card a gap in from the window is concentric with it (a plain length: the desktop host reads it for the native views) */
+  --window-gap: var(--split-gap);   /* the room between the window's edges and the cards, the same as between two cards */
+  --radius-frame: 16px;         /* corners of the center content card next to the sidebar and the panel (circular, measured) */
+  --radius-face: calc(var(--sbar-h) / 2 + var(--line)); /* every face laid on the page (summary bar, question panel, timeline, cards, code): half a closed bar with its two edges, so a closed bar is a pill, and the same bar open keeps that corner (round, --corner-round) */
+  --surface-radius: var(--r-surface); /* a face laid on the page; a container sets the smaller, concentric one for the faces inside it */
+  --surface-corner: var(--corner-round); /* the corner shape that goes with --surface-radius */
+  --hairline: .5px;
+
+  /* Sizes */
+  --sidebar-w: 264px;
+
+  --topbar-h: 41px;
+  /* Narrow windows (measured on the reference): the center keeps at least 240, then the panel gives way down to 130 */
+  --content-min-w: 240px;
+  --traffic-light-w: 80px;      /* window traffic-light area (desktop shell) */
+  --row-h: 32px;
+  --section-head-h: 28px;
+  --control-h: 32px;
+  --control-h-sm: 28px;
+  --control-h-xs: 24px;
+  --control-h-lg: 36px;
+  /* first-run flow (measured) */
+  --fr-title: 30px; --fr-title-lead: 32px; --fr-hero-title: 36px; --fr-hero-lead: 40px; --fr-track: -0.008em; --fr-desc-weight: 480;
+  --fr-mark: 32px; --fr-dot: 6px; --fr-dot-on: 12px; --fr-tile-h: 144px; --fr-tile-max: 176px; --fr-tile-icon: 44px;
+  --fr-w-tiles: 560px; --fr-w-start: 320px; --fr-left: 45.5%; --fr-left-min: 320px; --fr-hero-icon: 96px;
+  --fr-fade: 200ms; --fr-welcome-fade: 400ms; --fr-desktop-top: 52px; /* below the window traffic lights */
+  /* picture scene slide (measured on the reference start picture): 340 ms, ease (.22, 1, .36, 1); scenes hold 4.2 s */
+  --fr-scene-in: 340ms; --fr-scene-hold: 4200ms;
+  --fr-w-list: 556px; --fr-h-list: 440px; --fr-check-h: 152px; --fr-scene-w: 520px; /* list steps: one column width, the height kept while rows come in */
+  --cb-max-h: 480px; /* a code view that scrolls inside (logs) at most this high */
+  --ripple: 6px; --fs-max-w: 22ch; --fs-done-hold: 2.4s; /* a waiting status icon's ring; flow status text: widest, how long a step's number and "Connected" stay */
+  --icon: 16px;
+  --icon-sm: 14px;
+  --icon-xs: 12px;
+  --icon-lg: 18px;
+  --icon-xl: 20px;
+  /* Page icon drawn where a page shows its site icon: tab rows, palette rows, context chips (measured on the reference) */
+  --favicon: 16px;
+  --favicon-lg: 18px;
+  --favicon-xl: 20px;
+  --favicon-glyph: 68.75%;
+  --r-favicon: 25%; /* a page icon's own mask */
+  --favicon-bg: rgb(152 162 165);
+  --favicon-fg: #ffffff;
+  --settings-nav-w: clamp(9rem, 30vw, 13rem);
+  --settings-col-w: 672px;      /* settings body column including its 32 side padding */
+  --chat-col-w: 820px;
+  --home-col-w: 680px;
+  --list-col-w: 1040px;
+  --rc-paper-w: 178mm;          /* a printed report's text width: A4 less the print sheet's 16mm margins */
+  --page-split-min: calc(var(--space-40) + var(--space-16));
+  --palette-w: 616px;
+  --menu-min-w: 96px;
+  /* the one floating surface (menus, popovers, submenus, context menus drawn by the page, tooltips, chart tips) */
+  --float-pad: var(--space-1_5); --float-row-h: var(--control-h); --float-label-h: var(--space-7);
+  --float-tip-pad: var(--space-1) var(--space-2_5);
+  --float-bg: var(--glass); --float-solid: var(--float-bg); --float-filter: var(--glass-filter); --float-edge: inset 0 0 0 1px var(--glass-ring-inner), 0 0 0 var(--hairline) var(--glass-ring-outer); --float-shadow: var(--shadow-lg);
+  --tooltip-max-w: 320px;
+
+  --control-max-w: 160px;
+  --select-multi-w: 176px;      /* multi-choice list trigger (which sections show) */
+  --select-summary-w: 160px;    /* multi-choice trigger that shows a summary word */
+  /* Dialogs (max widths sm 384, md 512, lg 576, xl 672) and their scrim */
+  --dialog-w-sm: 384px; --dialog-w-md: 512px; --dialog-w-lg: 576px; --dialog-w-xl: 672px; --blur-scrim: 4px; --dlg-cancel-min-w: 100px;
+  /* Forms: grid label column, property row, textarea */
+  --fld-label-w: 160px; --fld-row-h: 44px; --textarea-min-h: 64px; --textarea-code-h: 240px; --leading-code: 18px;
+
+  /* Motion */
+
+  --dur-menu: 100ms;            /* menus, popovers, dialogs open and close */
+  --dur-fast: 150ms;            /* default transitions, tooltips */
+  --dur-tooltip-move: 160ms;
+  --dur-switch: 200ms;
+  --dur-collapse: 200ms;
+  /* Sidebar section collapse: content height and chevron. Measured on the reference with burst captures taken the same way on this kit:
+     opening is complete in the first frame, closing is part way in the first frame and done in the second */
+  --motion-section-open-dur: 0ms;
+  --motion-section-open-ease: cubic-bezier(0, 0, .2, 1);
+  --motion-section-close-dur: 100ms;
+  --motion-section-close-ease: cubic-bezier(0, 0, .2, 1);
+  --motion-section-chev-dur: 100ms; /* the chevron still turns when the content opens at once */
+
+  /* Sidebar and AI panel: width changes, center card reflows. Same burst captures: showing the sidebar and closing the panel finish in the
+     first frame, hiding the sidebar is about two thirds done there, opening the panel three quarters */
+  /* The shared enter and exit motion is the side panels' own: what comes in (the panel opening) eases out over 350 ms, what goes away
+     (the sidebar hiding) over 150 ms. Lists, folding sections and fades in the content use the same two, and a list's items come in
+     one after another --motion-stagger apart, so every motion in the app has one feel. */
+  --motion-enter-dur: 350ms;
+  --motion-enter-ease: cubic-bezier(.16, 1, .3, 1);
+  --motion-exit-dur: 150ms;
+  --motion-exit-ease: cubic-bezier(0, 0, .2, 1);
+  --motion-stagger: 60ms;
+  --motion-enter-y: 6px;        /* an item coming in rises this far */
+  --motion-sidebar-hide-dur: var(--motion-exit-dur);
+  --motion-sidebar-hide-ease: var(--motion-exit-ease);
+  --motion-sidebar-show-dur: 0ms;
+  --motion-sidebar-show-ease: cubic-bezier(.2, .9, .3, 1);
+  --motion-panel-open-dur: var(--motion-enter-dur);
+  --motion-panel-open-ease: var(--motion-enter-ease);
+  --motion-panel-close-dur: 100ms;
+  --motion-panel-close-ease: var(--motion-exit-ease);
+  --dock-h: 280px; --dock-min-h: 120px; --dock-grip: 6px; /* bottom terminal panel: default height, smallest height, the drag strip on its top edge */
+  --dock-run-h: calc(var(--topbar-h) + 8 * var(--term-leading) + var(--space-2)); /* the panel under a running command on the first-run screen: its head and about eight lines */
+  --term-text: var(--text-code); --term-leading: var(--leading-sm); /* terminal type: the code block size and line height */
+  --term-bg: transparent; --term-fg: var(--foreground); /* the app's terminal colors: the panel fill shows through */
+  --dur-blur-in: 80ms;          /* text inside an in-place submenu */
+  --dur-skeleton: 1.5s;
+  --dur-spin: 1s;
+  --dur-caret: 1s; --ease-caret: steps(2); /* the typing caret blink */
+  --dur-ripple: 1.6s; /* a part waiting for the person (a failed step, a row that needs an action) keeps a soft ring spreading out */
+  --ease-blink: ease-in-out;      /* a soft repeating pulse (a failed part of a graph) */
+  --press-brightness: .92;        /* a pressed button or row */
+  --delay-tooltip: 300ms;     /* measured on the reference (burst capture next to the same capture of this kit): about 0.3 s after hover */
+  --delay-preview: 600ms;      /* tab preview card: hidden 0.5 s after hover, shown by 0.8 s on the reference */
+  --delay-tooltip-group: 400ms; /* moving to another tooltip within this opens it at once */
+  --delay-submenu: 100ms;
+  --delay-scrollbar-hide: 500ms;
+  --scroll-thumb-min: 16px;
+  --ease-standard: cubic-bezier(.4, 0, .2, 1);
+  --ease-enter: ease;
+  --ease-out: ease-out;
+  --ease-out-expo: cubic-bezier(.22, 1, .36, 1);
+  --ease-exit: cubic-bezier(.4, 0, 1, 1); /* speeding up as it goes: a thing that leaves the screen */
+  /* Spring (stiffness 520, damping 40, mass 1): tab underline and pill indicator */
+  --dur-spring-tab: 405ms;
+  --ease-spring-tab: linear(0, .0167, .0595, .1192, .1897, .2654, .3425, .4176, .4899, .5574, .6195, .6754, .7257, .7701, .8091, .8427, .8717, .8964, .9173, .9347, .9493, .9612, .971, .9788, .9851, .99, .9939, .9968, .999, 1.0006, 1.0017, 1.0024, 1.0029, 1.0031, 1.0032, 1.0031, 1.003, 1.0028, 1.0026, 1.0024, 1.0021, 1.0019, 1.0016, 1.0014, 1.0012, 1.001, 1.0009, 1.0007, 1);
+  /* Spring (stiffness 420, damping 34, mass 1): in-place submenu height */
+  --dur-spring-submenu: 447ms;
+  --ease-spring-submenu: linear(0, .0164, .0589, .1192, .1906, .2678, .3468, .4247, .4994, .5694, .6338, .6921, .7441, .7901, .83, .8645, .8938, .9184, .9389, .9558, .9694, .9803, .9888, .9954, 1.0004, 1.0039, 1.0064, 1.008, 1.009, 1.0094, 1.0094, 1.0091, 1.0086, 1.0079, 1.0072, 1.0065, 1.0058, 1.005, 1.0044, 1.0037, 1.0032, 1.0026, 1.0022, 1.0018, 1.0014, 1.0011, 1.0009, 1.0007, 1);
+  --enter-scale: .95;
+  --enter-offset: 8px;
+  --morph-scale: .96;
+  --morph-dim: .5;
+  --tooltip-scale: .95;
+  --press-scale-slight: .97; --press-opacity: .9;
+  /* Menus and popovers hide what is below them (measured on the reference: text under a menu cannot be read) */
+  --blur-glass: 24px;
+  --blur-glass-desktop: 8px;
+  /* A backdrop blur is drawn over the backdrop, not in its place. Where the document is transparent (the desktop window, so the
+     window material shows) the blurred copy is faint and the sharp original stays readable through a translucent surface.
+     --glass-solid (an SVG filter kit puts in every document, see core/style.js) lays the flat window color --glass-under under
+     the blurred copy, so it hides the original; over an opaque document it changes nothing. Every translucent floating surface ends
+     its backdrop filter with it. */
+  --glass-solid: url(#kit-glass-under);
+  --glass-under: var(--window-flat);
+  /* The backdrop behind menus is blurred and desaturated (the reference shows backdrop brightness, not its hue) */
+  --glass-filter: blur(var(--blur-glass)) grayscale(1) var(--glass-solid);
+  --native-glass-filter: blur(var(--blur-palette)) saturate(1.6) var(--glass-solid);
+  --blur-palette: 30px;
+  --blur-submenu-in: 4px;
+  --blur-submenu-out: 2px;
+
+  /* Layers */
+  --z-content: 1;
+  --z-sticky: 3;
+  --z-scrim: 40;
+  --z-first-run: 44;
+  --z-palette: 45;
+  --z-dialog: 48;
+  --z-notice: 49; --z-menu: 50;
+  --z-tooltip: 60;
+  --z-toast: 65;
+  --z-thumb: 70;
+}
+
+/* ---------- Layout values measured on the reference (px), grouped by component ---------- */
+:root {
+  /* Sidebar */
+  --sb-pad-end: 7px; --sb-bottom-h: 40px; --sb-scroll-end: 6px; --sb-bottom-pad-start: 9px; --sb-sec-pad-bottom: 9.5px;
+  --sb-head-gap: 4px; --sb-head-px: 9px; --sb-row-mx: 7px; --sb-row-ml: 7.5px; --sb-row-px: 7.5px;
+  --tp-w: 280px; --tp-pad: 4px; --tp-img-h: 157px; --tp-txt-pt: 12px; --tp-txt-px: 8px; --tp-txt-pb: 8px; --tp-sub-gap: 2px; --tp-mem-gap: 7px; --tp-mem-icon: 12px;
+  --text-tp-title: 15px; --leading-tp-title: 20px; --leading-tp-line: 16px;
+  /* split view tab chooser (measured): card 394 wide, 16 bands above and below the list, rows 66 with a 56 page icon tile */
+  --tch-w: 394px; --tch-max-h: 311px; --tch-band: 16px; --tch-row-h: 66px; --tch-tile: 56px; --tch-row-px: 20px; --tch-gap: 16px;
+  /* tab groups (measured): rows indented 18, swatches 16 with 12 gaps, selected ring 2.5, icon grid 8 columns of 30 */
+  --sb-group-indent: 18px; --sb-folder-indent: 14px; --sb-rename-min-w: 30px; --sw-size: 16px; --sw-gap: 12px; --sw-sel-w: 3px; --mc-cols: 8; --mc-cell: 30px;
+  --split-gap: 8px;
+  --pt-h: 40px; --pt-gap: 6px; --pt-before: 6px; --pt-after: 6.5px;
+  --sb-row-gap: 4px; --sb-first-row-gap: 3px; --sb-collection-shift: 1.5px; --sb-after-add-gap: 5.5px; --sb-ctx-min: 48px; --sb-x-inset: 6px; --sb-x-size: 20px; --dot: 8px;
+  /* Top bar */
+  --tb-pad-start: 4px; --tb-pad-end: 8px; --tb-btn-w: 33px; --tb-icon: 17px; --tb-ident-gap: 4.5px;
+  --tb-ident-pad-start: 15.5px; --tb-ident-pad-end: 9.5px; --tb-ident-icon: 15px; --tb-vdiv-h: 16px; --tb-path-pad: 5px; --tb-seg-gap: 3px;
+  /* AI panel */
+  --pn-head-pad-start: 12px; --pn-head-pad-end: 9px; /* Conversation */
+  --msgs-pad-top: 30px; --msgs-pad-x: 14px; --msgs-full-pad-top: 72px; --msg-date-gap: 11.5px; --msg-date-gap-full: 17.5px;
+  --leading-chat: 20px;
+  --ub-gap: 9px; --ub-mb: 16px; --ub-mb-full: 41px; --ub-py: 6px; --ub-max-w: 95%;
+  --chip-h: 44px; --chip-max-w: 179px; --chip-tile: 32px; --ar-mt: 15px;
+  --cb-head-h: 36px; --cb-ln-w: 40px; --cb-ln-w-compact: 28px; --text-code: 13px; --leading-code-compact: 19px;
+  --ans-h2-mt: 23px; --ans-h2-mb: 12px; --mt-head-pb: 11px; --mt-leading: 21px; --mt-ib: 22px; --mt-ib-top: 8px; --mt-ib-inset: 6px; --mt-cell-py: 11.75px; --mt-code: .8125em; --sr-mark: 24px; --sr-dot: 6px; --sr-text-min: 96px; --dur-shimmer: 2s;
+  /* Composer */
+  --cmp-pad-top: 7.5px; --cmp-pad-bottom: 7.5px; --cmp-input-pt: 16px; --cmp-input-px: 7.5px; --cmp-input-pb: 13.5px;
+  --cmp-input-h: 49.5px; --cmp-input-min: 49.5px; --cmp-input-max: 191px; --cmp-row-mx-start: -.75px; --cmp-row-mx-end: -1.25px;
+  /* panel composer buttons and paddings measured on the real screen (2x zoom of the reference window); the wide composer keeps 28 */
+  --cmp-btn: 26px; --cmp-wide-btn: 28px; --cmp-wide-h: 44px; --cmp-wide-input-py: 12px; --cmp-wide-input-px: 10px; --icon-send: 18px;
+  --ctb-h: 26px; --ctb-gap: 0px; --ctb-mt: 3.75px; --ctb-pad-start: 5.5px; --ctb-pad-end: 5.5px; --ctb-wide-pad-start: 11.5px; --ctb-wide-pad-end: 17px; --ctb-pair-gap: 0px; --tbb-model-max: 112px; --icon-chev: 14px; --dur-label-fit: 300ms;
+  /* Small parts */
+  --badge-h: 20px; --badge-h-sm: 16px; --avatar: 20px; --avatar-sm: 16px; --ist-overlap: .45; --ist-ring: 2px; --ist-mark: .64; /* icon stack: the least share of a mark left showing when the row is short of room, and the ring of the ground round each mark */ --progress-h: 4px; --progress-inline-w: 48px; --kbd-h: 18px; --kbd-min-w: 20px; --tile: 36px; --focus-w: 3px;
+  /* Approval prompt */
+  --qp-num-w: 18px; --qp-list-max: 176px; --qp-row-py: 5px; --qp-btn-h: 30px; --qp-foot-pt: 8px; --qp-foot-pb: 14px;
+  --text-btn-sm: .8rem; --scrollbar-w: 16px; --scroll-thumb-w: 7px; --scroll-inset: 8px; --scroll-clear: var(--scrollbar-w);
+  --pg-stagger: 45ms; /* the delay between one strip item and the next rising in */
+  --tab-line-w: 2px; /* the line under the selected tab of a page body */
+  --fl-band-o: .28; --fl-band-o-hot: .5; --sbar-h: 44px; --dur-state-pulse: 1800ms; --dur-state-shake: 420ms; --state-halo-mix: 55%; /* state motion (components/state-motion.js): one breathing halo and one shake for the status flow, the summary bar and the relation graph */ --dur-sbar-spin: 1400ms; --fl-wash-lead: 36px; --fl-wash-trailw: 240px; --fl-wash-speed: 480; --fl-glass-blur: 14px; --widget-value-size: 22px; --widget-value-leading: 28px; --dur-unfold: 360ms; --chart-name-max: 96px; --cl-max: 880px; --cl-num-w: 96px; --sfl-sec-h: 48px; --sfl-dot: 20px; --sfl-icon: 12px; --sfl-brand-mark: 12px; --sfl-band: 2px; /* the marks of a status line are as small as the step flow's: a line of state, not a row of buttons */ --sfl-track-mix: 16%; --sfl-fill-o: .8; --sfl-ring-w: 2px; --sfl-ring-mix: var(--state-halo-mix); --sfl-shine: 40%; --sfl-shake: 4px; --sfl-ripple-scale: 1.7; --sfl-ripple-o: .6; --sfl-decide-min: 200px; --dur-sfl-run: 1500ms; --dur-sfl-pulse: var(--dur-state-pulse); --dur-sfl-spin: 1400ms; --dur-sfl-fill: 700ms; --dur-sfl-ripple: 1400ms; --dur-sfl-ripple-gap: 260ms; --disabled-opacity: .5; --chart-state-step: 48px; --chart-aspect: .4; --chart-h-min: 160px; --chart-h-max: 360px; --chart-aspect-cat-wide: .25; --chart-h-max-cat: 240px; --chart-tick-room: 72px; --chart-events-min: 280px; --chart-events-full: 560px; /* a time chart: its height against its width, the room between two time marks, and the widths at which change marks show as a row and in full */ --chart-sweep-mix: 7%; --dur-state-sweep: 1600ms; --chart-dim-o: .25; --chart-ghost-o: .5; --legend-pop-max: 240px; --dur-layer-open: 440ms; --dur-layer-close: 340ms; --chart-xgrid-o: .5; --chart-event-o: .85; --chart-request-o: .6; --chart-zoom-mix: 16%; --cl-pulse-min: .35; --widget-expand-inset: 14px; --cl-status-w: 188px; --cl-host-h: 100dvh; --chart-event-hit: 7px; --cl-kind-w: 140px; --cl-drawer-w: 320px; --dur-live-pulse: 1600ms; --chart-zoom-slop: 8px; --chart-tip-gap: 8px; --chart-tip-edge: 4px; --widget-head-inset: 14px; --dur-slide: 1200ms; --ease-slide: cubic-bezier(.45, 0, .25, 1); --dur-ico-in: 320ms; --fl-glass-sat: 1.6; --fl-glass-face: color-mix(in oklab, var(--foreground) 10%, transparent); --fl-glass-sheen: color-mix(in oklab, var(--foreground) 38%, transparent); --fl-band-r: 8px; --fl-fork-u: .2; --widget-row-h: 56px; --chart-line-w-lg: 3px; --fl-tile-bg: oklch(98.5% 0 0 / .14); --fl-band-face: oklch(85% .02 260 / .14); --fl-thin-o: .6; /* the resting face of the bands: thin enough that a band crossing another leaves it seen */ --fl-outline: color-mix(in oklab, var(--foreground) 46%, var(--background)); --dur-flow-reshape: 900ms; --fl-lab-dy: 16px; --fl-ico-dy: 12px; --dur-axis: 220ms; --chart-axis-size: 11px; --chart-axis-weight: 600; --chart-axis-weight-x: 700; --chart-reading-size: 20px; --chart-reading-leading: 24px; --chart-reading-sub: 11px; --dur-plot: 320ms; --dur-bar: 260ms; --dur-ghost-out: 250ms; --dur-ghost-in: 250ms; --dur-ghost-delay: 70ms; --chart-reading-top: 10px; --fl-wash-o: .42; --mask-on: #000; --mask-full: #fff; --chart-fade-top: .9; --chart-fade-bottom: .08; --line-avg: 1.5px; --avg-dash: 6 4; --fl-tile-gap: 8px; /* the room between a tile and the ends of its bands, the same at every tile */ --fl-fade-end: .08; --fl-tile-r-outer: 28px; --fl-tile-r-inner: 8px; --fl-stagger: 110ms; --fl-val-glow: 0 0 12px rgb(0 0 0 / .5); --fl-rel-col-min: 104px; --fl-label-under-max: 100px; --sbar-name-min: 72px; --fl-under-room: 40px; --fl-tile-min: 40px; --fl-tile-space: 24px; --fl-label-gap: 6px; --fl-label-apart: 12px; --fl-state-tint: 12%; /* how much of its state colour a warned or failed node's face takes */ /* the least room between the names of two columns */ --fl-band-min: 8px; /* the thinnest band that carries anything: a ribbon, never a hairline */ --fl-end-gap: 0px; /* band ends on one node edge touch: one outline round them where they meet the node, parting only as they curve away */ --fl-label-wrap: 220px; /* the width a long name under a tile wraps at */ --fl-thin-band: 4px; /* a band this thin or thinner is a line, with no outline of its own */ --dur-flow-tween: 320ms; /* a sankey moving to new values */ /* the room between a tile and the name under it, and between a name and the next tile */ /* the relation graph: band strength, band value and tile label widths */
+  --live-refresh-ms: 10000; /* a page showing live system state reads it again this often (core/live.js) */
+  --ph-ctx-min: 80px; /* the narrowest a page head's context line gets before it wraps */
+  --pane-narrow-w: 480px; --pane-list-min: 360px; --pane-detail-min: 360px; /* a detail split's least widths (app-frame): below both plus the gap the list folds */ --trim-max: 20; --trim-head: 11; --trim-tail: 6; /* card width rules and name trimming shared by pages (core/pane.js) */ --legend-w: 10px; --legend-h: 3px; --dt-row-h: 40px; --dt-row-sub-h: 56px; --dt-action-w: 36px; --dt-check-col: 36px;
+  /* Palette, OS-style menus */
+  --zi-w: 249px; --zi-h: 45px; --zi-pad-start: 15px; --zi-overhang: 11px; --zi-hud-h: 33px; --zi-hud-top: 15px; --zi-hud-right: 32px; --zi-bubble-ms: 1500ms; --zi-hud-ms: 3000ms;
+  --palette-h: 342px; --pal-input-h: 44px; --pal-kbd-h: 22px; 
+  --pal-row-h: 32px;
+  /* rich menu (swatches, icon grid; a floating surface on the desktop), measured on the reference group menu at 2x */
+  --rich-menu-pad: 4px; --rich-menu-row-h: 32px; --rich-menu-label-h: 22px; --rich-menu-choices-h: 34px; --rich-menu-sep-my: 4.25px; --text-rich-menu: 14px; --rich-menu-sub-gap: 2px; --rich-menu-grid-pad: 3px;
+  /* Settings */
+  --snav-pad-y: 4px; --snav-pad-start: 6px; --snav-item-h: 32px; --snav-item-pl: 8px; --snav-item-pr: 10px; --snav-ext-pr: 8px;
+  --snav-g-mt: 12px; --snav-g-px: 10px; --snav-g-pb: 4px; --text-snav-g: 13px; --leading-snav-g: 19.5px; --weight-snav-g: 450; --si-h: 32px; --si-pl: 8px; --text-section: 14px; --sg-card-gap: 10px;
+  --snav-sub-pl: 32px; --snav-guide-x: 16px; --sg-notice-h: 36px; --intro-pic-w: 288px; --intro-pic-h: 160px; --empty-card-h: 192px;
+  --wlk-win-x: 20px; --wlk-win-y: 8px; --wlk-blur-tinted: 7px; --wlk-blur-clear: 1.5px; --wlk-sat: 1.6;
+  --choice-w: 72px; --choice-h: 45px; --choice-ring: 3px; --sc-field-w: 96px; --rl-empty-h: 192px; --skel-line: 12px; --skel-line-sm: 10px; --skel-end-w: 40px;
+  --ft-indent: 14px; --fv-tree-w: 220px; --fv-head-h: 48px; --fv-framed-h: max(560px, 100vh - 280px);
+  --srow-min-h: 52px; --srow-lead-ml: 1px; --srow-lead-txt-ml: -1.5px; --srow-add-gap: 9px;
+  --utab-gap: 15.5px; --utab-h: 44px; --utab-px: 0px; --utab-ind-bottom: 2px; --utab-ind-h: 1px;
+  /* Switch (spring stiffness 540, damping 32, mass .65) */
+  --switch-w: 40px; --switch-h: 20px; --switch-pad: 2px; --switch-thumb-w: 24px; --switch-thumb-h: 16px;
+  --switch-off-x: 2px; --switch-on-x: 14px; --switch-lens-w: 36px; --switch-lens-h: 24px;
+  --switch-lens: rgb(255 255 255 / .15);
+  --switch-lens-ring: 0 0 0 1px rgb(255 255 255 / .42), inset 1px 0 0 rgb(255 255 255 / .95), inset -1px 0 0 rgb(125 211 252 / .45), inset 0 -1px 1px rgb(0 0 0 / .18);
+  --dur-spring-switch: 325ms;
+  --ease-spring-switch: linear(0, .017, .061, .1228, .1954, .2734, .3527, .4305, .5046, .5737, .637, .694, .7448, .7894, .8282, .8615, .8898, .9137, .9336, .95, .9634, .9741, .9827, .9893, .9945, .9983, 1.0011, 1.0031, 1.0044, 1.0052, 1.0056, 1.0058, 1.0056, 1.0054, 1.005, 1.0046, 1.0042, 1.0037, 1.0033, 1.0028, 1.0024, 1.0021, 1.0017, 1.0015, 1.0012, 1.001, 1.0008, 1.0006, 1);
+  /* Popover: a menu with the popover rows (identity, tools, credentials), its width */
+  --pop-w: 260px;
+  --switch-sm-w: 24px; --switch-sm-h: 14px; --switch-sm-pad: 1.5px; --switch-sm-thumb-w: 12px; --switch-sm-thumb-h: 11px; --switch-sm-on-x: 10.5px;
+  --ident-chip-h: 22.5px; --ident-chip-px: 6px;
+  /* Toast (top center, 3 s) */
+  --toast-offset: 24px; --toast-max-w: 24rem; --toast-stack-y: 14px; --toast-duration: 3000ms; --tr-pop-w: 320px; --select-rows: 10; --tr-x-room: var(--control-h-xs); /* the room kept at the end of the Custom pill for its clear button */ --ltb-search-w: 240px; --ltb-top: var(--space-4); /* list page toolbar: the search field's width and the room under the page header */ /* rows a select list shows before it scrolls (select.js SELECT_ROWS) */ /* the custom time range panel */ --notice-w: 380px; --notice-max: 3; --dur-notice: 220ms; --notice-leave-scale: .96; --notice-leave-x: var(--space-6); --notice-depth-scale: .95; --notice-duration: 8000ms; --notice-ok-duration: 4000ms; --notice-hold: 6000ms; --notice-tick: 5000ms; --notice-leave: 1200ms; --notice-chip-max: 240px; /* notice: the alert card at the top right, how many are in sight, its leading accent and how long one that does not persist stays */ --dur-toast: 400ms; --ease-toast: ease;
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / .1), 0 8px 10px -6px rgb(0 0 0 / .1);
+  /* Charts, flow graph */
+  --dur-chart: 600ms; --dur-flow-reveal: 450ms; --dur-flow-blink: 1.2s; --dur-flow-run: 1.4s; --fl-label-max: 150px; --fl-label-end-max: 220px; --fl-col-min: 96px;
+  /* Start page, chat tab */
+  --dt-flex-min: 220px; --chat-sub-h: 44px;
+}
+
+/* ---------- Dark theme ---------- */
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+  /* Window material (behind sidebar and AI panel). Transparent in the desktop shell so macOS vibrancy shows.
+     Browser: the reference's flat solid (--window, used for mixes) with the lightness steps of its vibrancy gradient behind the panel, without the wallpaper hue */
+  --window-flat: #2d2d2d;
+  --window: var(--window-flat);
+  --window-top: #272727;
+  --window-upper: #2c2c2c;
+  --window-lower: #363636;
+  --window-bottom: #2c2c2c;
+  --window-material: linear-gradient(to bottom, var(--window-top), var(--window-upper) 42%, var(--window-lower) 58%, var(--window-bottom));
+  --background: oklch(20.5% 0 0);
+  --fr-mark-color: var(--muted); --fr-hero-ring: oklch(0% 0 0 / .1); --fr-hero-bg: oklch(98.5% 0 0 / .05); --fr-hero-fg: var(--muted-foreground);
+  /* Web content background: background at 80% over the window material */
+  --content: color-mix(in srgb, oklch(20.5% 0 0) 80%, var(--window));
+  --content-inner: color-mix(in srgb, oklch(20.5% 0 0) 80%, var(--content));
+  --foreground: oklch(98.5% 0 0);
+  --popover: oklch(26.9% 0 0);
+  --primary: oklch(98.5% 0 0 / .85);
+  --primary-foreground: oklch(14.5% 0 0 / .85);
+  --secondary: oklch(98.5% 0 0 / .08);
+
+  --muted: oklch(98.5% 0 0 / .15);
+  --muted-foreground: oklch(78% .006 285); /* quiet words: 4.5 or more on the page, the cards, the rows and the panes (opaque, so a tinted ground does not thin them) */
+  --muted-foreground-80: oklch(72% .006 285);
+  --accent: oklch(98.5% 0 0 / .10);
+  --accent-foreground: oklch(98.5% 0 0 / .85);
+  --border: oklch(98.5% 0 0 / .10);
+  --border-half: oklch(98.5% 0 0 / .05);
+  --input: oklch(98.5% 0 0 / .10);
+  --input-30: oklch(98.5% 0 0 / .03);
+  --input-50: oklch(98.5% 0 0 / .05);
+  --border-surface: oklch(98.5% 0 0 / .15);
+  --border-surface-strong: oklch(98.5% 0 0 / .20);
+  --surface-primary: oklch(98.5% 0 0 / .08);
+  --surface-secondary: oklch(98.5% 0 0 / .06);
+  --surface-tertiary: oklch(98.5% 0 0 / .04);
+  --tabs-list: oklch(20.5% 0 0 / .4);
+  --surface-primary-foreground: oklch(98.5% 0 0 / .85);
+
+  --ring: oklch(98.5% 0 0 / .08);
+
+  --row-hover: var(--accent);
+  --row-mark: oklch(98.5% 0 0 / .06); /* a row or line pointed to in a report: a neutral tint */
+  --glass: color-mix(in oklab, oklch(26.9% 0 0) 92%, transparent);
+  --glass-ring-inner: rgb(255 255 255 / .10);
+  --glass-ring-outer: rgb(0 0 0 / .80);
+
+  --brand: oklch(74.6% .16 232.661);
+  --brand-content: oklch(74.6% .16 232.661);
+  --destructive: oklch(70.4% .191 22.216);
+  --destructive-soft: color-mix(in oklab, oklch(70.4% .191 22.216) 20%, transparent);
+  --destructive-soft-hover: color-mix(in oklab, oklch(70.4% .191 22.216) 30%, transparent);
+  --success: oklch(76.5% .177 163.223);
+  --success-soft: color-mix(in oklab, oklch(76.5% .177 163.223) 20%, transparent);
+  --warning: oklch(82.8% .189 84.429);
+  --success-content: var(--success); --warning-content: var(--warning); --destructive-content: var(--destructive); --chart-limit: var(--serious); /* status words and the limit line (darker in the light theme) */
+  --warning-soft: color-mix(in oklab, oklch(82.8% .189 84.429) 20%, transparent);
+  --serious: oklch(75% .183 55.934);
+  --switch-on: oklch(69.6% .17 162.48);
+  --switch-off: var(--muted);
+  --switch-thumb: #ffffff;
+  --send-bg: oklch(98.5% 0 0 / .85);
+  --send-bg-hover: oklch(98.5% 0 0 / .765);
+  --send-fg: oklch(14.5% 0 0 / .85);
+  --code-key: oklch(80.9% .105 251.813);
+  --code-str: oklch(84.5% .143 164.978);
+  --code-num: oklch(85.2% .199 91.936);
+  --code-com: oklch(98.5% 0 0 / .38);
+  --code-head: oklch(98.5% 0 0 / .05); /* the band of a code view's head, a step apart from the code */
+  --diff-add: color-mix(in oklab, oklch(76.5% .177 163.223) 14%, transparent);
+  --diff-del: color-mix(in oklab, oklch(70.4% .191 22.216) 14%, transparent);
+  --line-hl: color-mix(in oklab, oklch(82.8% .189 84.429) 10%, transparent);
+  --line-hl-error: color-mix(in oklab, var(--destructive) 12%, transparent);
+  /* the order alternates cool and warm hues, so neighbouring lines stay apart, and the first five also with red-green colour blindness (protan, deutan) */
+  --series-1: oklch(68% .12 230);
+  --series-2: oklch(82% .16 90);
+  --series-3: oklch(62.3% .214 259.815);
+  --series-4: oklch(88% .08 200);
+  --series-5: oklch(64% .16 340);
+  --series-6: oklch(86% .16 120);
+  --series-7: oklch(80% .12 290);
+  --series-8: oklch(54% .12 200);
+  --series-9: oklch(69.6% .17 162.48);
+  --series-10: oklch(66% .17 40);
+  /* sankey node colors, read from the reference's color assets (dark appearance) */
+  --sk-ac: color(display-p3 .969 .808 .275); --sk-bat: color(display-p3 .396 .769 .4); --sk-sys: color(display-p3 .227 .525 1);
+  --sk-other: color(srgb 0 .569 .575); --sk-soc: color(display-p3 .612 .361 .969); --sk-out: color(display-p3 .933 .627 .227);
+  --term-black: var(--muted-foreground); --term-red: var(--destructive); --term-green: var(--success); --term-yellow: var(--warning); --term-blue: var(--series-3);
+  --term-magenta: oklch(71.4% .203 305.504); --term-cyan: oklch(78.9% .154 211.53); --term-white: var(--foreground); --term-selection: var(--accent); /* terminal ANSI colors */
+  --rb-1: oklch(70.4% .191 22.216); --rb-2: oklch(75% .183 55.934); --rb-3: oklch(82.8% .189 84.429); --rb-4: oklch(79.2% .209 151.711);
+  --rb-5: oklch(74.6% .16 232.661); --rb-6: oklch(70.7% .165 254.624); --rb-7: oklch(70.2% .183 293.541); --rb-8: oklch(71.8% .202 349.761);
+  --rainbow-alpha: .5;
+
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / .05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / .1), 0 1px 2px -1px rgb(0 0 0 / .1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / .1), 0 2px 4px -2px rgb(0 0 0 / .1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / .1), 0 4px 6px -4px rgb(0 0 0 / .1);
+  --shadow-palette: 0 20px 50px rgb(0 0 0 / .45);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / .25);
+  --scrim: rgb(0 0 0 / .15);
+  /* confirmation dialog (quit question, measured): darker scrim, panel, icon tile, cancel fill and the solid red button */
+  --scrim-strong: rgb(0 0 0 / .45);
+  --dlg-confirm-bg: rgb(29 28 34); --dlg-tile-bg: rgb(47 46 52); --dlg-cancel-bg: rgb(42 41 47);
+  --danger-solid: rgb(206 58 48); --danger-solid-hover: rgb(190 52 43); --danger-solid-fg: #ffffff; --danger-kbd: rgb(0 0 0 / .2);
+  /* zoom bubble under the top bar and the zoom level pill on the page (measured) */
+  --zi-bg: rgb(43 43 43); --zi-hud-bg: rgb(29 29 29); --zi-hud-ring: rgb(43 43 43);
+  --invalid-border: color-mix(in oklab, oklch(70.4% .191 22.216) 50%, transparent);
+  --invalid-ring: color-mix(in oklab, oklch(70.4% .191 22.216) 40%, transparent);
+  --brand-fg: #ffffff;
+  --shadow-frame: 0 0 0 var(--hairline) rgb(255 255 255 / .12);
+
+  --ghost-hover: color-mix(in oklab, oklch(98.5% 0 0 / .15) 50%, transparent);
+  --secondary-80: color-mix(in oklab, oklch(98.5% 0 0 / .08) 80%, transparent);
+  --muted-foreground-35: oklch(98.5% 0 0 / .1925);
+  --chip-raised: color-mix(in srgb, oklch(26.9% 0 0), #ffffff 9%);
+  --chip-edge: rgb(255 255 255 / .06);
+  --split-divider: rgb(0 0 0 / .12);
+  --link: oklch(74.6% .16 232.661);
+  --link-underline: oklch(68.5% .169 237.323 / .2);
+  --weight-tip: 400;
+  --toast-success: oklch(69.6% .17 162.48);
+  --toast-error: oklch(64.5% .246 16.439);
+  --toast-warning: oklch(76.9% .188 70.08);
+  /* Native-style text and surfaces (sidebar, top bar, palette) */
+  --n-label: rgb(255 255 255 / .66);
+  --n-label-strong: #ffffff;
+  /* page and row icons on the sidebar material: translucent so the material and wallpaper tone shows through, the same in a selected row
+     (measured on the reference: icon ≈ white 55-58% over its material in selected and plain rows, while a selected label turns opaque) */
+  --n-icon: rgb(255 255 255 / .58);
+  --n-secondary: rgb(255 255 255 / .54);
+  --n-tertiary: rgb(255 255 255 / .46);
+  --n-sel: rgb(255 255 255 / .076);
+  --n-sel-ring: rgb(255 255 255 / .2);
+  --n-sel-shadow: 0 0 transparent;
+  /* Parts on the window material, measured over two backgrounds (live5/translucency.md): row hover 4.5%, icon button hover 9%,
+     tile 8.5% (hover 27%), selected tile 14% white plus the page tint at 10%, its 1px ring 15% white plus the tint at 20% */
+  --n-hover: rgb(255 255 255 / .045);
+  --n-btn-hover: rgb(255 255 255 / .09);
+  --n-bar-hover: rgb(255 255 255 / .05);
+  --n-tile: rgb(255 255 255 / .085);
+  --n-tile-ring: rgb(255 255 255 / .1);
+  --n-tile-hover: rgb(255 255 255 / .27);
+  --n-tile-sel: rgb(255 255 255 / .14);
+  --n-tile-sel-ring: rgb(255 255 255 / .15);
+  --n-tint-fill: 10%;
+  --n-tint-ring: 20%;
+  --n-divider: rgb(255 255 255 / .09);
+  --n-vdiv: rgb(255 255 255 / .14);
+  --n-pill: rgb(255 255 255 / .10);
+  --n-pill-hover: rgb(255 255 255 / .15);
+  --n-palette: rgb(40 40 40 / .92);
+  --tp-bg: var(--n-palette);
+  --tch-pane: rgb(56 57 61); --tch-card: rgb(43 43 43); --tch-list: rgb(32 33 37); --tch-tile-bg: rgb(40 40 40); --tch-hover: rgb(55 56 58);
+  --sw-neutral: rgb(218 219 223); --sw-ring: rgb(255 255 255 / .2); --sw-sel: rgb(255 255 255 / .14);
+  --grp-red: rgb(226 80 95); --grp-orange: rgb(233 123 49); --grp-yellow: rgb(231 163 53); --grp-green: rgb(81 181 133); --grp-blue: rgb(81 128 238); --grp-purple: rgb(135 94 238); --grp-pink: rgb(218 86 151);
+  /* a colored tab group (measured): box = group color 11% and white 5.5%, header in the group color lightened 25% */
+  --grp-fill: 11%; --grp-wash: rgb(255 255 255 / .055); --grp-ink-base: #ffffff; --grp-ink: 75%;
+  --pal-bg: rgb(255 255 255 / .035);
+  --pal-kbd: rgb(255 255 255 / .14);
+  --n-palette-ring: rgb(255 255 255 / .16);
+  --n-menu-hl: #0a63d8;
+  --n-menu-hl-fg: #ffffff;
+}
+
+/* ---------- Light theme ---------- */
+:root[data-theme="light"] {
+  --rb-1: oklch(63.7% .237 25.331); --rb-2: oklch(70.5% .213 47.604); --rb-3: oklch(76.9% .188 70.08); --rb-4: oklch(72.3% .219 149.579);
+  --rb-5: oklch(68.5% .169 237.323); --rb-6: oklch(62.3% .214 259.815); --rb-7: oklch(60.6% .25 292.717); --rb-8: oklch(65.6% .241 354.308);
+  color-scheme: light;
+  --window-flat: #e8e8e8;
+  --window: var(--window-flat);
+  --window-top: #dfdfdf;
+  --window-upper: #e7e7e7;
+  --window-lower: #f3f3f3;
+  --window-bottom: #e6e6e6;
+  --background: #ffffff;
+  --fr-mark-color: color-mix(in oklab, var(--muted-foreground) 60%, transparent); --fr-hero-ring: oklch(0% 0 0 / .1); --fr-hero-bg: oklch(97% 0 0); --fr-hero-fg: var(--muted-foreground);
+  --content: color-mix(in srgb, #ffffff 80%, var(--window));
+  --content-inner: #ffffff;
+  --foreground: oklch(14.5% 0 0);
+  --popover: #ffffff;
+  --primary: oklch(14.5% 0 0 / .95);
+  --primary-foreground: oklch(98.5% 0 0 / .95);
+  --secondary: oklch(14.5% 0 0 / .08);
+
+  --muted: oklch(14.5% 0 0 / .05);
+  --muted-foreground: oklch(45% .004 285); /* quiet words: 4.5 or more on every surface */
+  --muted-foreground-80: oklch(50% .004 285);
+  --accent: oklch(14.5% 0 0 / .10);
+  --accent-foreground: oklch(14.5% 0 0 / .85);
+  --border: oklch(14.5% 0 0 / .10);
+  --border-half: oklch(14.5% 0 0 / .05);
+  --input: oklch(14.5% 0 0 / .10);
+  --input-30: oklch(14.5% 0 0 / .03);
+  --input-50: oklch(14.5% 0 0 / .05);
+  --border-surface: oklch(14.5% 0 0 / .10);
+  --border-surface-strong: oklch(14.5% 0 0 / .15);
+  --surface-primary: oklch(100% 0 0);
+  --surface-secondary: oklch(100% 0 0 / .85);
+  --surface-tertiary: oklch(100% 0 0 / .55);
+  --fl-tile-bg: oklch(96% .01 260); --fl-band-face: oklch(45% .03 260 / .14); --fl-band-o: .42; /* light: a cool neutral face and tile, so a healthy band reads on the white card and a tile is never mistaken for a warning */ /* a light grey wash over the white card: seen at rest, and a band below a crossing still shows */ --fl-val-glow: 0 0 12px oklch(100% 0 0 / .85); --fl-wash-lead: 120px; /* light: the running colour darkens a pale band, so its front arrives as a slope (on the dark card it is a glow and keeps its short front) */
+  --tabs-list: oklch(70.8% 0 0 / .2);
+  --surface-primary-foreground: oklch(14.5% 0 0 / .85);
+
+  --ring: oklch(14.5% 0 0 / .08);
+
+  --row-hover: oklch(97% 0 0);
+  --row-mark: oklch(14.5% 0 0 / .05);
+  --glass: color-mix(in oklab, rgb(229 229 229) 94%, transparent);
+  --glass-ring-inner: rgb(255 255 255 / .80);
+  --glass-ring-outer: oklch(14.5% 0 0 / .20);
+
+  --brand: oklch(65.5% .169 237.323); /* the light theme's sky blue a little darker: a fill or an edge keeps 3 on white */
+  --brand-content: oklch(55.5% .158 241.966); /* words keep 4.5 on white */
+  --destructive: oklch(57.7% .245 27.325);
+  --destructive-soft: color-mix(in oklab, oklch(57.7% .245 27.325) 10%, transparent);
+  --destructive-soft-hover: color-mix(in oklab, oklch(57.7% .245 27.325) 20%, transparent);
+  --success: oklch(63.5% .17 162.48); /* an icon keeps 3 on white */
+  --success-soft: color-mix(in oklab, oklch(69.6% .17 162.48) 10%, transparent);
+  --warning: oklch(64% .16 74);
+  --success-content: oklch(51.5% .14 162.48); --warning-content: oklch(55.5% .163 48.998); --destructive-content: oklch(55% .22 27); --chart-limit: var(--serious); --chart-fade-bottom: .14; /* the light theme: words in a state colour darker than its shapes, and fills that do not fade out to white */
+  --warning-soft: color-mix(in oklab, oklch(64% .16 74) 12%, transparent);
+  --serious: oklch(64.6% .222 41.116);
+  --switch-on: oklch(69.6% .17 162.48);
+  --switch-off: oklch(14.5% 0 0 / .45);
+  --switch-thumb: #ffffff;
+  --send-bg: oklch(14.5% 0 0);
+  --send-bg-hover: oklch(14.5% 0 0 / .9);
+  --send-fg: #ffffff;
+  --code-key: oklch(54.6% .245 262.881);
+  --code-str: oklch(50.8% .118 165.612);
+  --code-num: oklch(55.5% .163 48.998);
+  --code-com: oklch(14.5% 0 0 / .4);
+  --code-head: oklch(14.5% 0 0 / .04);
+  --diff-add: color-mix(in oklab, oklch(69.6% .17 162.48) 14%, transparent);
+  --diff-del: color-mix(in oklab, oklch(57.7% .245 27.325) 12%, transparent);
+  --line-hl: color-mix(in oklab, oklch(76.9% .188 70.08) 12%, transparent);
+  --line-hl-error: color-mix(in oklab, var(--destructive) 10%, transparent);
+  /* the order alternates cool and warm hues, so neighbouring lines stay apart, and the first five also with red-green colour blindness (protan, deutan) */
+  --series-1: oklch(54% .12 230);
+  --series-2: oklch(56% .16 90);
+  --series-3: oklch(54.6% .245 262.881);
+  --series-4: oklch(70% .13 215);
+  --series-5: oklch(42% .15 350);
+  --series-6: oklch(52% .13 120);
+  --series-7: oklch(44% .18 285);
+  --series-8: oklch(66% .17 320);
+  --series-9: oklch(59.6% .145 163.225);
+  --series-10: oklch(56% .17 40);
+  --sk-ac: color(display-p3 .969 .852 .464); --sk-bat: color(display-p3 .553 .769 .556); --sk-sys: color(display-p3 .42 .627 .969);
+  --sk-other: color(srgb .397 .672 .732); --sk-soc: color(display-p3 .612 .361 .969); --sk-out: color(display-p3 .937 .714 .421);
+  --term-black: var(--muted-foreground); --term-red: var(--destructive); --term-green: var(--success); --term-yellow: var(--warning); --term-blue: var(--series-3);
+  --term-magenta: oklch(55.8% .288 302.321); --term-cyan: oklch(52% .105 223.128); --term-white: var(--foreground); --term-selection: var(--accent); /* terminal ANSI colors */
+
+  --shadow-palette: 0 20px 50px rgb(0 0 0 / .2);
+  --scrim-strong: rgb(0 0 0 / .3);
+  --dlg-confirm-bg: #ffffff; --dlg-tile-bg: oklch(14.5% 0 0 / .05); --dlg-cancel-bg: oklch(14.5% 0 0 / .05);
+  --danger-solid: oklch(57.7% .245 27.325); --danger-solid-hover: oklch(52% .23 27.325); --danger-solid-fg: #ffffff; --danger-kbd: rgb(0 0 0 / .15);
+  --zi-bg: #ffffff; --zi-hud-bg: #ffffff; --zi-hud-ring: oklch(14.5% 0 0 / .1);
+  --invalid-border: oklch(57.7% .245 27.325);
+  --invalid-ring: color-mix(in oklab, oklch(57.7% .245 27.325) 20%, transparent);
+  --shadow-frame: 0 0 0 var(--hairline) rgb(0 0 0 / .12);
+
+  --ghost-hover: oklch(14.5% 0 0 / .05);
+  --secondary-80: color-mix(in oklab, oklch(14.5% 0 0 / .08) 80%, transparent);
+  --muted-foreground-35: oklch(14.5% 0 0 / .1925);
+  --chip-raised: oklch(14.5% 0 0 / .06);
+  --chip-edge: transparent;
+  --split-divider: rgb(255 255 255 / .2);
+  --link: oklch(55.5% .158 241.966);
+  --link-underline: oklch(68.5% .169 237.323 / .2);
+  --weight-tip: 500;
+  --toast-success: oklch(69.6% .17 162.48);
+  --toast-error: oklch(64.5% .246 16.439);
+  --toast-warning: oklch(76.9% .188 70.08);
+  --n-label: rgb(0 0 0 / .78);
+  --n-label-strong: #000000;
+  --n-icon: rgb(0 0 0 / .69); /* light: the dark ratio to the label (.58 / .66) applied to the light label (not measured in light) */
+  --n-secondary: rgb(0 0 0 / .55);
+  --n-tertiary: rgb(0 0 0 / .45);
+  /* light: the selected row is a white pill with a small shadow (measured on the reference: #fefefe) */
+  --n-sel: rgb(254 254 254);
+  --n-sel-ring: rgb(0 0 0 / .06);
+  --n-sel-shadow: 0 1px 2px rgb(0 0 0 / .1);
+  /* row hover is white 50% (measured over two backgrounds), icon button hover black 8%, tile black 7% (hover white 15%),
+     selected tile opaque white with the page tint at 19%, its 1px ring white with the tint at 50% */
+  --n-hover: rgb(255 255 255 / .5);
+  --n-btn-hover: rgb(0 0 0 / .08);
+  --n-bar-hover: rgb(0 0 0 / .045);
+  --n-tile: rgb(0 0 0 / .07);
+  --n-tile-ring: rgb(0 0 0 / .02);
+  --n-tile-hover: rgb(255 255 255 / .15);
+  --n-tile-sel: rgb(255 255 255);
+  --n-tile-sel-ring: rgb(255 255 255);
+  --n-tint-fill: 19%;
+  --n-tint-ring: 50%;
+  --n-divider: rgb(0 0 0 / .09);
+  --n-vdiv: rgb(0 0 0 / .14);
+  --n-pill: rgb(0 0 0 / .10);
+  --n-pill-hover: rgb(0 0 0 / .15);
+  --n-palette: rgb(246 246 246 / .92);
+  /* tab preview card: white in light (measured on the real screen) */
+  --tp-bg: #ffffff;
+  --tch-pane: rgb(245 246 251); --tch-card: #ffffff; --tch-list: #ffffff; --tch-tile-bg: rgb(242 242 242); --tch-hover: rgb(231 231 231);
+  --sw-neutral: rgb(96 99 105); --sw-ring: rgb(0 0 0 / .2); --sw-sel: rgb(0 0 0 / .09);
+  --grp-red: rgb(226 80 95); --grp-orange: rgb(233 123 49); --grp-yellow: rgb(231 163 53); --grp-green: rgb(81 181 133); --grp-blue: rgb(81 128 238); --grp-purple: rgb(135 94 238); --grp-pink: rgb(218 86 151);
+  /* light (measured): box = group color 22%, header in the group color darkened 17% */
+  --grp-fill: 22%; --grp-wash: transparent; --grp-ink-base: #000000; --grp-ink: 83%;
+  --pal-bg: var(--n-palette);
+  --pal-kbd: rgb(0 0 0 / .08);
+  --n-palette-ring: rgb(0 0 0 / .14);
+  --n-menu-hl: #0a63d8;
+  --n-menu-hl-fg: #ffffff;
+}
+
+/* ---------- App-overridable tokens (apps/<app>/theme.css). Defaults are the reference values ----------
+ * --brand / --brand-content: app brand color (dots, badges). Small text uses --brand-content (contrast-checked) only.
+ * --action / --action-fg: primary button fill and its label.
+ * --switch-on, --focus, --indicator: switch on, focus ring, selection indicator (tab underline and so on).
+ * --sidebar-w.
+ * --font-display: title face; keep the default stack after the app face.
+ */
+:root, :root[data-theme="dark"], :root[data-theme="light"] {
+  --brand-badge: color-mix(in oklab, var(--brand) 20%, transparent);
+  --action: var(--primary);
+  --action-fg: var(--primary-foreground);
+  --action-hover: color-mix(in oklab, var(--action) 90%, transparent);
+  --focus: var(--ring);
+  --focus-border: var(--focus);
+  --focus-soft: color-mix(in oklab, var(--focus) 50%, transparent);
+  --indicator: var(--foreground);
+  --choice-ring-color: color-mix(in oklab, var(--brand) 30%, transparent);
+  /* window style pictures (window-look): the desktop picture when the desktop host gives one, else this artwork (an app may replace it
+     in its theme); a glass window over it, milky in the tinted style, clear in the transparent style */
+  --wlk-art: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 100'><defs><linearGradient id='b' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%230c2a5c'/><stop offset='.55' stop-color='%230a1f47'/><stop offset='1' stop-color='%23050f26'/></linearGradient><linearGradient id='r1' x1='0' y1='0' x2='1' y2='.3'><stop offset='0' stop-color='%23bae6fd'/><stop offset='.35' stop-color='%2338bdf8'/><stop offset='.75' stop-color='%230284c7'/><stop offset='1' stop-color='%23075985'/></linearGradient><linearGradient id='r2' x1='0' y1='1' x2='1' y2='0'><stop offset='0' stop-color='%230369a1'/><stop offset='.5' stop-color='%230ea5e9'/><stop offset='1' stop-color='%237dd3fc'/></linearGradient><linearGradient id='r3' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='%231e3a8a'/><stop offset='.6' stop-color='%232563eb'/><stop offset='1' stop-color='%2360a5fa'/></linearGradient><linearGradient id='h' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%23fff' stop-opacity='.85'/><stop offset='1' stop-color='%23fff' stop-opacity='0'/></linearGradient><filter id='s' x='-20%' y='-20%' width='140%' height='140%'><feGaussianBlur stdDeviation='1.6'/></filter><filter id='g' x='-20%' y='-20%' width='140%' height='140%'><feGaussianBlur stdDeviation='4'/></filter></defs><rect width='160' height='100' fill='url(%23b)'/><ellipse cx='118' cy='22' rx='46' ry='26' fill='%2338bdf8' opacity='.35' filter='url(%23g)'/><path d='M-10 74C22 40 48 30 80 46s58 22 92-14v36c-30 30-62 26-94 8S12 70-10 104Z' fill='url(%23r3)' opacity='.9' filter='url(%23s)'/><path d='M-14 58C14 18 52 6 86 26s54 30 88-4v22c-34 32-62 24-92 4S10 44-14 82Z' fill='url(%23r1)' filter='url(%23s)'/><path d='M-6 60C18 26 50 14 84 32s52 26 82-2' fill='none' stroke='url(%23h)' stroke-width='3' stroke-linecap='round' opacity='.75' filter='url(%23s)'/><path d='M30 104C52 74 82 64 110 74s40 8 60-12v42Z' fill='url(%23r2)' opacity='.85' filter='url(%23s)'/><path d='M40 100C60 78 86 70 110 78' fill='none' stroke='%23e0f2fe' stroke-width='1.6' stroke-linecap='round' opacity='.5' filter='url(%23s)'/></svg>");
+  --wlk-win-tinted: rgb(250 250 252 / .78); --wlk-win-clear: rgb(255 255 255 / .06);
+  --wlk-win-edge: rgb(255 255 255 / .55); --wlk-win-sheen: linear-gradient(160deg, rgb(255 255 255 / .38), rgb(255 255 255 / 0) 42%);
+  --wlk-win-shadow: -2px 2px 8px rgb(0 0 0 / .28);
+}
+:root[data-theme="light"] { --brand-badge: color-mix(in oklab, var(--brand) 10%, transparent); }
+:root[data-theme="light"] { --state-halo-mix: 80%; } /* on a light ground (and a tinted tile) the breathing halo needs more of its colour to read at its low points */
+
+/* ---------- Parts drawn on the window material ([data-surface="material"]: sidebar, AI panel) ----------
+ * Measured over several backgrounds (live5/translucency.md, live7). Dark: the composer card, its round button and the dictate/send button
+ * are white tints (the dictate button takes the wallpaper's hue), the context chip and its icon tile are opaque with a white 14% ring. Light: card, chip, tile
+ * and buttons are opaque.
+ * --tint is the page's representative color (pinned tiles, chip icon tile); without one it is the neutral page icon color. */
+:root, :root[data-theme="dark"], :root[data-theme="light"] {
+  --tint-neutral: var(--favicon-bg);
+  --cmp-bg: var(--surface-primary); --cmp-round-bg: var(--secondary); --cmp-round-hover: var(--secondary-80);
+  --chip-bg: var(--accent); --chip-ring: var(--chip-edge); --chip-tile-base: var(--accent); --chip-tint: 0%;
+}
+:root:not([data-theme="light"]) [data-surface="material"] {
+  --cmp-bg: rgb(255 255 255 / .085); --cmp-round-bg: rgb(255 255 255 / .08); --cmp-round-hover: rgb(255 255 255 / .12);
+  --chip-bg: rgb(82 82 82); --chip-ring: rgb(255 255 255 / .14); --chip-tile-base: rgb(82 82 82); --chip-tint: 20%;
+  --send-bg: rgb(255 255 255 / .83); --send-bg-hover: rgb(255 255 255 / .73);
+}
+:root[data-theme="light"] [data-surface="material"] {
+  --cmp-bg: rgb(255 255 255); --cmp-round-bg: rgb(236 236 236); --cmp-round-hover: rgb(226 226 226);
+  --chip-bg: rgb(255 255 255); --chip-ring: rgb(0 0 0 / .1); --chip-tile-base: rgb(255 255 255); --chip-tint: 25%;
+  --send-bg: rgb(23 23 23); --send-bg-hover: rgb(23 23 23 / .9);
+}
+
+/* ---------- Desktop shell: window material shows behind sidebar and panel, content at 80% ---------- */
+html.is-desktop:root, html.is-desktop:root[data-theme] { --window: transparent; --window-material: transparent; }
+html.is-desktop:root, html.is-desktop:root[data-theme="dark"] { --content: oklch(20.5% 0 0 / .8); --content-inner: oklch(20.5% 0 0 / .8); }
+html.is-desktop:root[data-theme="light"] { --content: rgb(255 255 255 / .8); --content-inner: rgb(255 255 255 / .8); }
+/* Web menus in the desktop window: the popover color at 80% over an 8px blur of the document below (the reference panel's dropdowns, measured
+   on the real screen: nothing below can be read and the brightness follows what is below). The window color under the blur
+   (--glass-solid) stands for the window material. The top bar popovers and the palette stand for the reference's native surfaces and stay
+   opaque in their measured colors. */
+html.is-desktop:root { --float-solid: var(--popover); --glass: color-mix(in oklab, var(--popover) 80%, transparent); --glass-filter: blur(var(--blur-glass-desktop)) var(--glass-solid); }
+html.is-desktop:root, html.is-desktop:root[data-theme="dark"] { --pal-bg: rgb(29 30 35); }
+html.is-desktop:root[data-theme="light"] { --pal-bg: rgb(232 232 238); }
+/* Light panel menus over the window material measure 227 whatever lies behind the window (wallpaper, white, black: the same value),
+   so what the 80% popover covers there is a fixed grey, not the window color: 227 = .8 × 255 + .2 × 115 */
+html.is-desktop:root[data-theme="light"] { --glass-under: rgb(115 115 115); }
+
+/* ---------- Tab page documents: menus and select lists take the page background at 80% (measured: white in light on a page,
+   while menus in the shell keep the panel grey) ---------- */
+html.is-page:root[data-theme="light"] { --glass: color-mix(in oklab, oklch(100% 0 0) 80%, transparent); }
+html.is-page.is-desktop:root[data-theme="light"] { --glass: oklch(100% 0 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-caret: 0ms; --dur-ripple: 0ms; --motion-enter-dur: 0ms; --motion-exit-dur: 0ms; --motion-stagger: 0ms; --dur-menu: 0ms; --dur-fast: 0ms; --dur-switch: 0ms; --dur-collapse: 0ms; --motion-sidebar-hide-dur: 0ms; --motion-sidebar-show-dur: 0ms; --motion-panel-open-dur: 0ms; --motion-panel-close-dur: 0ms; --motion-section-open-dur: 0ms; --motion-section-close-dur: 0ms; --motion-section-chev-dur: 0ms; --dur-spring-tab: 0ms; --dur-spring-submenu: 0ms; --dur-tooltip-move: 0ms; --dur-label-fit: 0ms; --dur-spring-switch: 0ms; --dur-blur-in: 0ms; --dur-toast: 0ms; --dur-notice: 0ms; --dur-axis: 0ms; --dur-bar: 0ms; --dur-chart: 0ms; --dur-flow-blink: 0ms; --dur-flow-reshape: 0ms; --dur-flow-reveal: 0ms; --dur-flow-run: 0ms; --dur-ghost-delay: 0ms; --dur-ghost-in: 0ms; --dur-ghost-out: 0ms; --dur-ico-in: 0ms; --dur-layer-close: 0ms; --dur-layer-open: 0ms; --dur-live-pulse: 0ms; --dur-plot: 0ms; --dur-state-pulse: 0ms; --dur-state-shake: 0ms; --dur-sbar-spin: 0ms; --dur-sfl-fill: 0ms; --dur-sfl-pulse: 0ms; --dur-sfl-ripple: 0ms; --dur-sfl-ripple-gap: 0ms; --dur-sfl-run: 0ms; --dur-sfl-spin: 0ms; --dur-shimmer: 0ms; --dur-skeleton: 0ms; --dur-slide: 0ms; --dur-spin: 0ms; --dur-state-sweep: 0ms; --dur-unfold: 0ms; }
+}
+
+/* Terminal color presets (Settings › Appearance › Terminal theme): kit.terminal.theme sets data-term-theme on the shell; 'app' follows
+   the app theme (the tokens above). Each preset is a full set: background, text, selection and the eight ANSI colors */
+:root[data-term-theme="midnight"] { --term-bg: oklch(21.8% .014 268.4); --term-fg: oklch(86.5% .012 258.3); --term-selection: oklch(32% .02 265);
+  --term-black: oklch(52% .02 265); --term-red: oklch(68% .16 20); --term-green: oklch(76% .13 140); --term-yellow: oklch(82% .12 85); --term-blue: oklch(70% .13 250); --term-magenta: oklch(70% .15 310); --term-cyan: oklch(76% .1 200); --term-white: oklch(92% .01 260); }
+:root[data-term-theme="paper"] { --term-bg: oklch(98.5% .004 90); --term-fg: oklch(30% .01 260); --term-selection: oklch(90% .02 250);
+  --term-black: oklch(55% .01 260); --term-red: oklch(52% .2 25); --term-green: oklch(50% .14 145); --term-yellow: oklch(58% .13 75); --term-blue: oklch(50% .17 255); --term-magenta: oklch(50% .19 315); --term-cyan: oklch(55% .1 205); --term-white: oklch(35% .01 260); }
+:root[data-term-theme="solarized"] { --term-bg: oklch(26.6% .049 219.8); --term-fg: oklch(65.7% .022 214.4); --term-selection: oklch(32% .05 220);
+  --term-black: oklch(52.5% .035 215); --term-red: oklch(58.5% .2 27); --term-green: oklch(64% .15 115); --term-yellow: oklch(65% .14 85); --term-blue: oklch(61% .14 245); --term-magenta: oklch(55% .2 350); --term-cyan: oklch(64% .11 190); --term-white: oklch(92.5% .026 95); }

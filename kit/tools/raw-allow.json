@@ -1,0 +1,17 @@
+[
+  {
+    "file": "kit/core/temporal-chart.js",
+    "line": "return a === 255 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${Math.round(a / 255 * 1000) / 1000})`;",
+    "why": "concreteColor writes out the canvas pixel the browser computed for a token"
+  },
+  {
+    "file": "kit/core/temporal-chart.js",
+    "line": "const withAlpha = (color, alpha) => { const m = /^rgba?\\(\\s*(\\d+),\\s*(\\d+),\\s*(\\d+)/.exec(color); return m ? `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${alpha})` : color; };",
+    "why": "withAlpha rewrites a resolved token color with another opacity"
+  },
+  {
+    "file": "kit/core/temporal-chart.test.mjs",
+    "line": "const concrete = (r, g, b, a) => a === undefined ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${a})`;",
+    "why": "the test writes concreteColor's output format from its own channel numbers"
+  }
+]

@@ -1,0 +1,166 @@
+{
+  "kubeconfig.aws": {
+    "template": "aws eks update-kubeconfig --name {name} --region {region}",
+    "args": {
+      "name": "[A-Za-z0-9][A-Za-z0-9_.-]{0,99}",
+      "region": "[a-z]{2}(-[a-z]+)+-\\d"
+    },
+    "env": [
+      "KUBECONFIG"
+    ]
+  },
+  "kubeconfig.gcp": {
+    "template": "gcloud container clusters get-credentials {name} --region {region} --project {project}",
+    "args": {
+      "name": "[A-Za-z0-9][A-Za-z0-9_.-]{0,99}",
+      "region": "[a-z]+-[a-z]+\\d(-[a-z])?",
+      "project": "[a-z][a-z0-9-]{4,29}"
+    },
+    "env": [
+      "KUBECONFIG"
+    ]
+  },
+  "kubeconfig.azure": {
+    "template": "az aks get-credentials --name {name} --resource-group {group}",
+    "args": {
+      "name": "[A-Za-z0-9][A-Za-z0-9_.-]{0,99}",
+      "group": "[\\w.()-]{1,90}"
+    },
+    "env": [
+      "KUBECONFIG"
+    ]
+  },
+  "kubeconfig.kind": {
+    "template": "kind export kubeconfig --name {name}",
+    "args": {
+      "name": "[a-z0-9][a-z0-9.-]{0,62}"
+    },
+    "env": [
+      "KUBECONFIG"
+    ]
+  },
+  "login.aws": {
+    "template": "aws sso login",
+    "env": [
+      "KUBECONFIG"
+    ]
+  },
+  "login.gcp": {
+    "template": "gcloud auth login",
+    "env": [
+      "KUBECONFIG"
+    ]
+  },
+  "login.azure": {
+    "template": "az login",
+    "env": [
+      "KUBECONFIG"
+    ]
+  },
+  "install.awscli": {
+    "template": "brew install awscli",
+    "env": [
+      "KUBECONFIG"
+    ]
+  },
+  "install.gcloud": {
+    "template": "brew install --cask google-cloud-sdk && gcloud components install gke-gcloud-auth-plugin",
+    "env": [
+      "KUBECONFIG"
+    ]
+  },
+  "install.gcloud-sdk": {
+    "template": "brew install --cask google-cloud-sdk",
+    "env": [
+      "KUBECONFIG"
+    ]
+  },
+  "install.azure": {
+    "template": "brew install azure-cli Azure/kubelogin/kubelogin",
+    "env": [
+      "KUBECONFIG"
+    ]
+  },
+  "install.azure-cli": {
+    "template": "brew install azure-cli",
+    "env": [
+      "KUBECONFIG"
+    ]
+  },
+  "install.kind": {
+    "template": "brew install kind",
+    "env": [
+      "KUBECONFIG"
+    ]
+  },
+  "install.kubectl": {
+    "template": "brew install kubectl",
+    "env": [
+      "KUBECONFIG"
+    ]
+  },
+  "install.helm": {
+    "template": "brew install helm",
+    "env": [
+      "KUBECONFIG"
+    ]
+  },
+  "agent.install": {
+    "template": "helm upgrade --install wake-agent {chart} --namespace wake-system --create-namespace --kube-context {cluster} --set identity.clusterId={cluster}",
+    "args": {
+      "chart": "/[^\\u0000-\\u001f\\u007f]{1,1024}",
+      "cluster": "[^\\u0000-\\u001f\\u007f]{1,253}"
+    },
+    "env": [
+      "KUBECONFIG"
+    ],
+    "confirm": true
+  },
+  "perm.grant.namespace": {
+    "template": "kubectl create role {name} --verb=get,list,watch --resource={resource} -n {namespace} --context {context}\nkubectl create rolebinding {binding} --role={name} --user={user} -n {namespace} --context {context}",
+    "args": {
+      "name": "wake-read-[a-z0-9.-]{1,50}",
+      "resource": "[a-z0-9.-]{1,253}",
+      "namespace": "[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?",
+      "context": "[^\\u0000-\\u001f\\u007f]{1,253}",
+      "binding": "wake-read-[a-z0-9.-]{1,101}",
+      "user": "[^\\u0000-\\u001f\\u007f]{1,253}"
+    },
+    "env": [
+      "KUBECONFIG"
+    ],
+    "confirm": true
+  },
+  "perm.grant.cluster": {
+    "template": "kubectl create clusterrole {name} --verb=get,list,watch --resource={resource} --context {context}\nkubectl create clusterrolebinding {binding} --clusterrole={name} --user={user} --context {context}",
+    "args": {
+      "name": "wake-read-[a-z0-9.-]{1,50}",
+      "resource": "[a-z0-9.-]{1,253}",
+      "context": "[^\\u0000-\\u001f\\u007f]{1,253}",
+      "binding": "wake-read-[a-z0-9.-]{1,101}",
+      "user": "[^\\u0000-\\u001f\\u007f]{1,253}"
+    },
+    "env": [
+      "KUBECONFIG"
+    ],
+    "confirm": true
+  },
+  "ai.install.codex": {
+    "template": "npm install -g @openai/codex"
+  },
+  "ai.install.claude": {
+    "template": "npm install -g @anthropic-ai/claude-code"
+  },
+  "ai.install.gemini": {
+    "template": "npm install -g @google/gemini-cli"
+  },
+  "ai.login.codex": {
+    "template": "codex login"
+  },
+  "ai.login.claude": {
+    "template": "claude /login"
+  },
+  "ai.login.gemini": {
+    "template": "gemini"
+  }
+}

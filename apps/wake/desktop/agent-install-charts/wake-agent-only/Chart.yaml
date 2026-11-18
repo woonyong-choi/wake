@@ -1,0 +1,5 @@
+apiVersion: v2
+name: wake-agent-only
+version: 0.0.0
+type: application
+description: wake-agent DaemonSet (per-node heartbeat Lease, read-only watch of its own Node and Pods)

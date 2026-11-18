@@ -1,0 +1,66 @@
+/* Document defaults. Values come from tokens.css names only */
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--window);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  /* names and identifiers are shown as typed: no ligatures or contextual alternates (the fonts turn 4x2 into a multiplication sign) */
+  font-variant-ligatures: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: default; text-align: inherit; }
+input, textarea { font: inherit; color: inherit; margin: 0; }
+h1, h2, h3, h4, p { margin: 0; font: inherit; }
+:focus { outline: none; }
+:focus-visible, [data-focus-visible] { outline: none; box-shadow: 0 0 0 var(--focus-w) var(--focus); } /* [data-focus-visible]: a dialog's first control shows the ring from the open, also while the window is inactive */
+/* every button and button row: a press darkens it a little; a disabled one takes no press (components set their own disabled look) */
+:where(button, [role="button"]):not(:disabled):active { filter: brightness(var(--press-brightness)); }
+:where(button):disabled { cursor: default; filter: none; }
+input:focus-visible, textarea:focus-visible { box-shadow: none; }
+.wi { width: var(--icon); height: var(--icon); flex-shrink: 0; display: block; }
+.wi-sm { width: var(--icon-sm); height: var(--icon-sm); }
+.wi-xs { width: var(--icon-xs); height: var(--icon-xs); }
+.wi-lg { width: var(--icon-lg); height: var(--icon-lg); }
+.wi-xl { width: var(--icon-xl); height: var(--icon-xl); }
+.fav { width: var(--favicon); height: var(--favicon); border-radius: var(--r-favicon); background: var(--favicon-bg); color: var(--favicon-fg); display: grid; place-items: center; flex-shrink: 0; }
+.fav > .wi { width: var(--favicon-glyph); height: var(--favicon-glyph); }
+.fav-lg { width: var(--favicon-lg); height: var(--favicon-lg); }
+.fav-xl { width: var(--favicon-xl); height: var(--favicon-xl); }
+.trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.fade-trunc { overflow: hidden; white-space: nowrap; min-width: 0; mask-image: linear-gradient(to right, var(--mask-ink) calc(100% - var(--space-4)), transparent); }
+.muted { color: var(--muted-foreground); }
+/* a control that shows only while its host is pointed at or holds focus (message copy and edit, a table's expand, a running row's cancel) */
+.reveal { opacity: 0; pointer-events: none; transition: opacity var(--dur-fast) var(--ease-standard); }
+.reveal-host:hover .reveal, .reveal-host:focus-within .reveal { opacity: 1; pointer-events: auto; }
+.mono { font-family: var(--font-mono); }
+.grow { flex: 1; min-width: 0; }
+/* Text selection: the shell document is UI chrome (not selectable, so Select All never picks up chips, labels or buttons); message text and
+   inputs stay selectable. Tab page documents keep normal selection; buttons (as measured) and chrome pieces inside them opt out */
+body:not([data-kind="page"]) { user-select: none; }
+body:not([data-kind="page"]) :is(.msgs, input, textarea, [contenteditable="true"]) { user-select: text; }
+button, [role="button"], .ub-acts { user-select: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Shared SVG filter of the floating surfaces (core/style.js): takes no space; the flood is the window color of the current theme */
+.glass-defs { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+.glass-defs feFlood { flood-color: var(--glass-under); }
+/* No native scroll bar anywhere (with the macOS 'always show' setting it draws a classic track): scrollers mark data-scroll and get the
+   kit overlay bar (components/scroll-area.js); a scroller without it still scrolls, without a bar */
+* { scrollbar-width: none; }
+::-webkit-scrollbar { display: none; }
+/* Tab page documents: background is the shell content slot (transparent); main is the page scroller (overlay bar at the view edge) */
+body[data-kind="page"] { background: transparent; overflow: hidden; height: 100%; }
+body[data-kind="page"] > main { min-height: 0; height: 100%; display: flex; flex-direction: column; overflow-x: hidden; overflow-y: auto; container: page / inline-size; }
+body[data-kind="page"] > main.page-with-own-scroll { overflow: clip; }
+.kit-error { padding: var(--space-8); font-size: var(--text-sm); color: var(--foreground); }
+.kit-error h1 { font-size: var(--text-lg); font-weight: var(--weight-semibold); margin-bottom: var(--space-3); }
+.kit-error li { color: var(--destructive-content); }
+/* a floating layer lifted into the top layer (core/position.js lift): the popover's own UA look is undone, the layer keeps its component's look and is placed in viewport coordinates */
+[popover][data-lifted] { position: fixed; inset: auto; margin: 0; width: max-content; height: auto; }
+:where([popover][data-lifted]) { border: 0; padding: 0; background: transparent; color: inherit; overflow: visible; } /* the popover's own ground and box give way to whatever the component draws */
+[popover][data-lifted]:not(:popover-open) { display: none; }

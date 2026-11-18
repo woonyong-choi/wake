@@ -1,0 +1,5 @@
+/* Wake 셸 문서 시작 */
+import config from './app.config.js';
+import { createShell } from '../../kit/index.js';
+
+createShell(config, { appBase: './' });

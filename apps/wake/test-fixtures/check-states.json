@@ -1,0 +1,6 @@
+{
+  "settings": {
+    "wake.clusters.list": [{ "id": "check-cluster", "ctx": "check-cluster", "state": "ok", "version": "v1.35.0", "agent": true, "perm": "read" }]
+  },
+  "kube.read": { "contexts": [], "files": [], "paths": [] }
+}

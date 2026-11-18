@@ -1,0 +1,11 @@
+Wake
+Copyright 2026 choi woo-nyong
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It includes third-party software, fonts and icons under their own licenses:
+see THIRD_PARTY_NOTICES.txt for the desktop app, and the /licenses folder of the
+wake-agent container image for the agent.
+
+The service logos in apps/wake/assets/brands/ are trademarks of their owners and
+are not licensed under the Apache License (see apps/wake/assets/brands/NOTICE.md).

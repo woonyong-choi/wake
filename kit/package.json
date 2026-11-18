@@ -1,0 +1,13 @@
+{
+  "name": "kit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Product-agnostic app shell kit: tokens, components, shell, page runtime, desktop host",
+  "optionalDependencies": {
+    "node-pty": "1.1.0"
+  },
+  "devDependencies": {
+    "electron-builder": "26.0.12"
+  }
+}

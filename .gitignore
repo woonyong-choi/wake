@@ -1,0 +1,5 @@
+node_modules/
+.local/
+kit/desktop/native/window.node
+__pycache__/
+.pytest_cache/

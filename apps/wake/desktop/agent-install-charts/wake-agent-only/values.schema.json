@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "image",
+    "identity",
+    "resources"
+  ],
+  "properties": {
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "digest"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "pattern": "^[a-z0-9.-]+(?::[0-9]+)?/[A-Za-z0-9._/-]+$"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "required": [
+        "clusterId"
+      ],
+      "properties": {
+        "clusterId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+/* Kit public entry (tab page documents) */
+export { bootPage } from './boot.js';
+export { createSettingsPage } from './kinds/settings.js';
+export { createChatPage } from './kinds/ai/chat.js';
+export { components } from '../components/index.js';
+export { html, raw, esc, cx, attrs } from '../core/html.js';
+export { icon } from '../icons/icons.js';
+export { t, locale, formatNumber, formatPercent, formatDate, formatRelative } from '../core/i18n.js';
+export { text, localizeMenu } from '../core/text.js';
+export { keyLabel } from '../core/keys.js';
+export { paneNarrow, trimMiddle, tokenPx, useTokenSource } from '../core/pane.js';
+export { temporalSegments } from '../core/temporal-chart.js';
+export { formatValue } from '../core/value-axis.js';
+export { attachSplitPanes } from '../core/split.js';
+export { liveInterval, sourceView, createLivePoll, createLiveFeed, createRequestGate } from '../core/live.js';
+export { lineDiff } from '../core/diff.js';
+export { createPanelEngine } from '../shell/panel-engine.js';
+export { service, onService, hasService } from '../core/service.js';
+export { saveText } from '../core/save.js';
+export { createReport, toMarkdown, deleteSelectedOp } from '../core/report.js';

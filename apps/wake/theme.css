@@ -1,0 +1,281 @@
+/*
+ * Wake 테마(앱이 덮어쓰는 토큰만). 색은 모두 기준 앱 값(kit 기본값)을 따른다.
+ * 앱 안 로고 마크는 단색으로 주변 글자색(테마의 전경색)을 따르고, 파란 로고는 앱 아이콘(assets/icon)에만 쓴다.
+ */
+/* 가운데 작업 영역(.frame-main, 분할 창 .frame-pane 포함)과 모든 네이티브 페이지 본문은 불투명한 --background.
+   토큰을 덮어써서 후손(분할 창, 카드)이 함께 따르고, 옆 패널(aside)은 .frame-main 밖이라 그대로다. 페이지 종류 표시로 거르지 않는다 */
+html.is-desktop .frame-main,
+html.is-desktop body[data-kind="page"] {
+  --content: var(--background);
+  --content-inner: var(--background);
+}
+
+/* 본문 영역의 색 톤: 보라 기운이 도는 남색 바탕과 채도를 올린 상태색. 사이드바·AI·설정은 이 범위 밖이라 그대로다.
+   면은 흰색 투명도 겹침이라 바탕이 물들면 카드와 칸이 함께 물든다 */
+/* 떠 있는 창(메뉴·툴팁·대화상자·팔레트·토스트·알림 카드)은 셸 문서에 떠도 탭 문서와 같은 톤과 글자 크기를 받는다(한 곳에서 정의) */
+:root:not([data-theme="light"]) .frame-main,
+:root:not([data-theme="light"]) body[data-kind="page"],
+:root:not([data-theme="light"]) :is(.m-layer, .tip, .dlg-layer, .pal, .toasts, .ntcs) {
+  --background: oklch(30% .02 282);
+  --success: oklch(79% .19 152);
+  --warning: oklch(80% .17 70);
+  --destructive: oklch(70% .21 22);
+  --series-3: color(display-p3 .612 .361 .969);
+  --series-5: oklch(60% .2 345); /* darker than the teal of series 9, so the two stay apart with red-green colour blindness (deutan ΔE 17); clear of the failure red */
+  --series-9: oklch(77% .15 185);
+  --brand: oklch(74% .17 262);
+  /* words in a state colour are that colour in the dark theme: declared again here so they follow the colours above. Red words are lighter than red shapes, and quiet words a little
+     stronger than the kit's, so both keep 4.5 on the cards of this darker tinted ground */
+  --success-content: var(--success); --warning-content: oklch(82.8% .189 84.429); --destructive-content: oklch(80% .14 22); /* warning words are amber-400 (RULE-TONE) */
+  --muted-foreground: oklch(78% .006 285);
+  /* floating surfaces (menu, select list, submenu, tooltip) are derived from the background where the tokens are declared,
+     so the scope that tints the background derives them again: a raised face of the same hue, as the cards and the legend list have */
+  --popover: color-mix(in oklab, var(--foreground) 8%, var(--background));
+  --glass: color-mix(in oklab, var(--popover) 92%, transparent);
+  --float-bg: var(--glass);
+  --float-solid: var(--float-bg);
+}
+/* 밝은 테마: 본문 바탕을 옅은 회색으로 내려 흰 카드와 칸이 바탕과 구분된다 */
+:root[data-theme="light"] :is(.frame-main, body[data-kind="page"]),
+:root[data-theme="light"] :is(.m-layer, .tip, .dlg-layer, .pal, .toasts, .ntcs) {
+  --background: oklch(96.5% .004 285);
+  --content: var(--background);
+  --content-inner: var(--background);
+  --surface-primary: oklch(100% 0 0);
+  --surface-secondary: oklch(100% 0 0);
+  --border-surface: oklch(14.5% 0 0 / .08);
+  --muted-foreground: oklch(45% .004 285); /* quiet words keep 4.5 on the grey page as well as on the white cards */
+}
+/* the body's text size and line height are resolved at the shell body: a floating window takes them again from its own scope */
+:where(.m-layer, .tip, .dlg-layer, .pal, .toasts, .ntcs) { font-size: var(--text-sm); line-height: var(--leading-sm); }
+/* a floating window in the shell document takes the light glass of a page document (kit/tokens.css html.is-page), so a menu looks the same wherever it opens */
+:root[data-theme="light"] :is(.m-layer, .tip, .dlg-layer, .pal, .toasts, .ntcs) { --glass: color-mix(in oklab, var(--popover) 80%, transparent); --float-bg: var(--glass); --float-solid: var(--float-bg); }
+html.is-desktop:root[data-theme="light"] :is(.m-layer, .tip, .dlg-layer, .pal, .toasts, .ntcs) { --glass: var(--popover); --float-bg: var(--glass); --float-solid: var(--float-bg); }
+/* the desktop window keeps its own strengths for these (kit/tokens.css: the popover color at 80%, opaque tooltips) */
+html.is-desktop:root:not([data-theme="light"]) :is(.frame-main, body[data-kind="page"]),
+html.is-desktop:root:not([data-theme="light"]) :is(.m-layer, .tip, .dlg-layer, .pal, .toasts, .ntcs) {
+  --glass: color-mix(in oklab, var(--popover) 80%, transparent);
+  --float-solid: var(--popover);
+}
+
+/* 본문과 그 스크롤 영역(main)이 스크롤 뷰포트 전체를 같은 불투명 바탕으로 덮는다 */
+html.is-desktop body[data-kind="page"],
+html.is-desktop body[data-kind="page"] > main {
+  background: var(--content-inner);
+}
+/* 설정은 내비가 창 바탕 위에 있고 본문 카드만 칠한다(셸 .frame-main.bare) */
+html.is-desktop body[data-kind="page"]:has(.cc-split),
+html.is-desktop body[data-kind="page"]:has(.cc-split) > main {
+  background: transparent;
+}
+
+/* 설정(셸 .frame-main.bare): 앱 사이드바와 설정 목록 사이에 창 위에서 아래까지 세로 경계선과 칸 사이 여백(기준 앱의 사이드바 경계). 사이드바를 접으면 선도 없다 */
+html.is-desktop .frame:not(.sidebar-hidden):has(> .frame-main.bare) > .frame-sidebar {
+  box-shadow: inset calc(-1 * var(--line)) 0 0 var(--border);
+}
+html.is-desktop .frame:not(.sidebar-hidden) > .frame-main.bare {
+  padding-left: var(--window-gap);
+}
+/* 설정 본문 카드의 바깥 선(--shadow-frame, 카드 밖으로 그려짐)이 탭 화면(네이티브 view) 끝에서 잘리지 않게, 위·오른쪽·아래로 선 굵기만큼 안쪽에 둔다 */
+html.is-desktop .cc-card {
+  margin-block: var(--line);
+  margin-inline-end: var(--line);
+}
+
+/* 브랜드 마크(assets/brands): 밝은·어두운 바탕용 공식 두 버전 중 테마에 맞는 쪽만 */
+:root:not([data-theme="light"]) .brand-on-light, :root[data-theme="light"] .brand-on-dark { display: none; }
+
+/* 대화상자와 파일 보기 제목은 14px(첫 실행 화면 제목은 따로라 그대로) */
+:root {
+  --dlg-title-size: var(--text-native);
+  --fv-title-size: var(--text-native);
+}
+
+body[data-kind="page"],
+:is(.m-layer, .tip, .dlg-layer, .pal, .toasts, .ntcs) {
+  --text-sm: var(--text-native-sm);
+  --leading-sm: var(--leading-native);
+  --text-section: var(--text-native-sm);
+  --text-code: var(--text-xs);
+  --leading-code-compact: var(--leading-native);
+  /* the card's inner rules (kit/components/page-column.js, page-header.js, pill-tabs.js): inner padding, content width, the space under the last row,
+     under the head, between sections and around the tabs */
+  --pane-head-gap: var(--space-3);
+  --pane-section-gap: var(--space-3);
+  --pane-tabs-before: var(--space-2);
+  --pane-tabs-after: var(--space-3);
+  --pane-max-w: var(--list-col-w);
+  --pane-pad-top: var(--space-4);
+  --pane-pad-inline: var(--space-5); /* more than the pane corner (--r-window 16) by one step, so no card or row edge runs into the corner curve */
+  --pane-pad-bottom: var(--space-10);
+  --msgs-pad-x: var(--pane-pad-inline);
+  --page-title-size: var(--text-lg);
+  --ans-h2-size: var(--text-native);
+  --ans-h2-leading: var(--leading-native);
+  --ans-h3-size: var(--text-native-sm);
+  --ans-h3-leading: var(--leading-native);
+  --intro-title-size: var(--text-native);
+  --page-title-leading: var(--leading-base);
+  --page-toolbar-wrap: wrap;
+  --page-toolbar-inset: 0;
+  --tile: var(--space-7);
+  --dt-row-h: var(--space-7);
+}
+
+/* 설정 밖의 페이지(도구·에이전트 화면 등)와 떠 있는 창에 놓인 설정 행·컨트롤은 본문 밀도로 줄인다. 설정 페이지(.s-col)는 kit 값(기준 앱 밀도) 그대로 */
+body[data-kind="page"]:not(:has(.s-col)),
+:is(.m-layer, .tip, .dlg-layer, .pal, .toasts, .ntcs) {
+  --page-control-h: var(--control-h-sm);
+  --page-group-inset: 0;
+  --srow-min-h: var(--space-9);
+  --srow-padding: var(--space-1) var(--space-2_5);
+  --srow-gap: var(--space-2);
+  --srow-control-gap: var(--space-2);
+  --srow-control-wrap: wrap;
+}
+
+/* 설정 본문은 기준 앱의 열(kit 설정 값: 가운데 672 열, 머리 아래 24, 묶음 사이 32. 위 여백은 경로 막대 아래 32)을 그대로 쓴다: 본문 칸 규칙(--pane-*)을 비워 kit 값으로 돌린다 */
+.s-col {
+  --pane-max-w: initial;
+  --pane-pad-top: var(--space-8);
+  --pane-pad-inline: initial;
+  --pane-pad-bottom: initial;
+  --pane-head-gap: initial;
+  --pane-section-gap: initial;
+}
+
+.wake-cluster-page {
+  --property-strip-min: calc(var(--space-16) + var(--space-8));
+}
+
+/* Section names establish hierarchy without increasing the console's text size. */
+:is(.wake-cluster-page, .wake-resource-detail) .ss-title {
+  color: var(--foreground);
+  font-weight: var(--weight-semibold);
+}
+
+.wake-resource-detail {
+  --dt-flex-min: var(--space-40);
+}
+
+.wake-resource-detail .pg {
+  gap: var(--space-2) var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--space-40)), 1fr));
+}
+
+.wake-resource-detail .pg-label {
+  margin-bottom: var(--space-0_5);
+}
+
+.wake-cluster-page .dt td > .val,
+.wake-resource-detail .pg-value > .val {
+  display: block;
+  color: inherit;
+}
+
+[data-wake-view] .pcol > .fv.framed {
+  left: auto;
+  width: 100%;
+  overflow: hidden;
+  transform: none;
+}
+[data-wake-view] .pcol > .fv.framed > .fv-main {
+  min-width: 0;
+}
+[data-wake-view] .pcol > .fv.framed .fv-body {
+  overflow-x: hidden;
+}
+[data-wake-view] .pcol > .fv.framed > .fv-tree {
+  position: relative;
+}
+[data-wake-view] .pcol > .fv.framed > .fv-tree > [data-scroll="tree"] {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.is-page .cc:has(> .chat-page) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.is-page .cc:has(> .chat-page) > .pcol {
+  flex-shrink: 0;
+  padding-block: var(--space-3);
+}
+.is-page .cc:has(> .chat-page) > .chat-page {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.pcol > .ss:first-of-type > .sg-card > .lgrid:not(.three) {
+  --srow-text-flex: 0 0 calc(var(--space-16) + var(--space-8));
+  gap: 0;
+  margin-top: 0;
+}
+
+.pcol > .ss:first-of-type > .sg-card > .lgrid > .sr-row {
+  justify-content: flex-start;
+  box-shadow: inset calc(-1 * var(--line)) calc(-1 * var(--line)) 0 var(--border);
+}
+.pcol > .ss:first-of-type > .sg-card > .lgrid:not(.three) > .sr-row:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+.pcol > .ss:first-of-type > .sg-card > .lgrid:not(.three) > .sr-row > .sr-ctl {
+  justify-content: flex-start;
+}
+.pcol.home > .ss > .ss > .sg-card {
+  margin-inline: 0;
+}
+.pcol.home > .ss > .ss > .lgrid + .sg-card {
+  margin-top: var(--sg-card-gap);
+}
+.pcol.chat > .lgrid.bleed > .card > .card-h {
+  gap: var(--space-1);
+  margin-bottom: var(--space-1);
+}
+
+.pcol.home > .lgrid.bleed,
+.pcol.home > .card.bleed,
+.pcol.home > .ss > .sg-card,
+.pcol.home > .sg-card {
+  margin-inline: 0;
+}
+
+[data-c="wake-log-search-state"] > .sr-row .sr-title {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* 클러스터 본문 화면(홈, 지표, 구역): 시뮬레이션 v-page처럼 머리 아래 카드·줄 사이 16, 구역 화면의 설정 묶음 사이 24 */
+[data-wake-view] .pcol { display: grid; grid-auto-rows: max-content; gap: var(--space-4); }
+[data-wake-view] .pcol > * { min-width: 0; margin-block: 0; }
+[data-wake-view] .pcol > .ph.home { margin: 0; } /* 머리 아래 간격도 카드 사이 16 하나 */
+[data-wake-view] .pcol > .ss + .ss { margin-block-start: var(--space-2); }
+[data-wake-view] .pcol > .ph + .srcc { margin-block-start: calc(var(--space-2) - var(--space-4)); } /* 출처 칩은 머리 바로 아래(시뮬레이션 머리 묶음) */
+[data-wake-view] .pcol > .cmp + .tr { margin-block-start: calc(var(--space-2) - var(--space-4)); justify-self: end; } /* 기간은 범위 검색 상자 바로 아래 제 줄, 오른쪽(시뮬레이션 scopeHead) */
+[data-wake-view] .pcol .sbm > .val + .sbar { margin-block-start: calc(var(--space-2) - var(--space-4)); } /* 범위가 있을 때 지표 넷의 묶음 첫 줄 "클러스터 전체 값" */
+[data-wake-view] .pcol > .sbm:has(> .val) { margin-block-end: var(--space-4); } /* 그 묶음과 범위를 따르는 카드(Pod 흐름부터) 사이를 벌려 말이 지표 넷에만 걸림(A3-05) */
+[data-wake-view="detail"] .pcol-header > .ltb.slots { margin-block-start: 0; } /* 상세 머리 묶음(머리 · 경고 줄 · 탭)은 카드 사이 16 하나로 */
+
+
+/* narrow cards: the name column may shrink further so the status keeps its full words */
+@container page (max-width: 480px) { /* quality:literal: a container query cannot read a token */
+  .dt-host { --dt-flex-min: calc(var(--space-16) + var(--space-10)); }
+  .ltb-e { flex: 1 1 100%; }
+}
+
+
+
+/* 인시던트 작업면 머리(시뮬레이션 작업면의 줄 간격): 머리 줄 → 머리 값 → 출처 칩 → 행동 줄(검색 · AI에게 묻기 · 내보내기 · 링크 복사) → 상태 흐름 카드 */
+[data-wake-incident] .pcol > .sbar-items,
+[data-wake-incident] .pcol > .srcc { margin-block-end: var(--space-3); }
+[data-wake-incident] .pcol > .ltb { margin-block-end: var(--space-3); }
+/* 근거 상세: 머리 → (끊기기 전 줄) → 요약 막대 → 질의 줄 → 본문, 카드 사이 16 */
+[data-wake-evidence] .pcol > :is(.sbar, .stl) { margin-block-end: var(--space-4); }
+[data-wake-evidence] .pcol > .qln { margin-block-end: var(--space-3); }
+[data-wake-incident] .sbar-item > b > .sti-text { vertical-align: middle; margin-inline-end: var(--space-1); } /* 상태와 그 대상 이름을 한 줄 가운데에(이름이 말줄임으로 양보) */

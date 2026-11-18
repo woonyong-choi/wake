@@ -1,0 +1,6 @@
+/*
+ * Folio theme (only the tokens an app overrides): an indigo brand and a serif display face.
+ */
+:root, :root[data-theme="dark"] { --brand: oklch(67.3% .182 276.935); --brand-content: oklch(78.5% .115 274.713); }
+:root[data-theme="light"] { --brand: oklch(51.1% .262 276.966); --brand-content: oklch(45.7% .24 277.023); }
+:root, :root[data-theme="dark"], :root[data-theme="light"] { --font-display: "Iowan Old Style", "Georgia", serif; }
