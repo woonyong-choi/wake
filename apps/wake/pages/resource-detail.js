@@ -21,7 +21,7 @@ import { contract } from '../data/gitops.js';
 import { readCause, readFailure, skeletonBar } from './view-parts.js';
 import { eventSummary } from '../data/incident-model.js';
 import { eventObjectOf, changeMarks, windowOf, CHANGE_LANES, PRESET_SECONDS } from '../data/home.js';
-import { ownerOf, planFor } from '../data/ownership.js';
+import { ownerOf, planFor, rollbackChange } from '../data/ownership.js';
 
 const LOG_ROW_LIMIT = 1000;
 const LOG_BYTE_LIMIT = 2 * 1024 * 1024;
@@ -630,25 +630,37 @@ bootPage(config, async ctx => {
     if (phase !== 'ready' || !r?.raw) return [];
     const ns = r.ns ? ` -n ${r.ns}` : '', k = params.kind, kindWord = kind?.kind?.toLowerCase(), raw = r.raw;
     const owner = managerRaw ? manager() : ownerOf(raw), gitops = owner?.kind === 'argocd' && owner.auto !== false && k !== 'pods';
-    const oom = mine.some(p => p.lastExit === 'OOMKilled' || (p.containerList || []).some(c => c.last === 'OOMKilled' || c.state === 'OOMKilled'));
+    /* 메모리로 죽은 그 컨테이너(사이드카가 첫 컨테이너여도 그 이름으로 찾음) */
+    const killed = mine.flatMap(p => (p.containerList || []).filter(c => c.last === 'OOMKilled' || c.state === 'OOMKilled').map(c => c.name)).filter(Boolean);
+    const oom = killed.length > 0 || mine.some(p => p.lastExit === 'OOMKilled');
     const replicas = raw.spec?.replicas ?? r.desired, list = [];
     const scale = { id: 'scale', title: `Scale(${replicas} → ${replicas + 1})`, values: [{ path: 'spec.replicas', before: replicas, after: replicas + 1 }] };
     if (['deployments', 'statefulsets'].includes(k)) {
       if (gitops) { if (k === 'deployments') list.push({ id: 'revert', title: t('wake.rv.act.revert'), values: [] }); list.push(scale); }
       else {
         if (!oom) list.push({ id: 'restart', title: t('wake.rv.act.restart'), command: `kubectl rollout restart ${kindWord}/${r.name}${ns}` });
-        const lim = raw.spec?.template?.spec?.containers?.[0]?.resources?.limits?.memory, mi = memMiOf(lim);
-        if (oom && mi) list.push({ id: 'limits', title: t('wake.rv.act.limits'), values: [{ path: 'spec.template.spec.containers[0].resources.limits.memory', before: lim, after: `${Math.round(mi * 1.5)}Mi` }] });
+        const at = (raw.spec?.template?.spec?.containers ?? []).findIndex(c => c.name === killed[0]), box = raw.spec?.template?.spec?.containers?.[at];
+        const lim = box?.resources?.limits?.memory, mi = memMiOf(lim), base = `spec.template.spec.containers[${at}]`;
+        if (oom && mi) list.push({ id: 'limits', title: t('wake.rv.act.limits'), guards: [{ path: `${base}.name`, value: box.name }], values: [{ path: `${base}.resources.limits.memory`, before: lim, after: `${Math.round(mi * 1.5)}Mi` }] });
         list.push(scale);
-        if (k === 'deployments') list.push({ id: 'rollback', title: t('wake.rv.act.rollback'), command: `kubectl rollout undo deployment/${r.name}${ns}` });
+        /* 되돌리기: 지금 revision 바로 앞 ReplicaSet의 템플릿으로 바꾸는 JSON patch(같은 UID·generation·revision일 때만, ownership.js rollbackChange) */
+        if (k === 'deployments') {
+          const REV = 'deployment.kubernetes.io/revision', rev = o => Number(o?.metadata?.annotations?.[REV]), now = rev(raw);
+          const earlier = (relationships?.items ?? []).filter(x => rev(x) < now && x.spec?.template).sort((a, b) => rev(b) - rev(a))[0];
+          /* Helm 릴리스면 릴리스 되돌리기(제목에 ReplicaSet revision을 쓰지 않음). guard가 다 없으면 rollbackChange가 null */
+          const back = earlier ? rollbackChange({ deployment: raw, to: earlier, title: owner?.kind === 'helm' ? t('wake.rv.act.rollbackRelease', { release: owner.release }) : t('wake.rv.act.rollback', { revision: rev(earlier) }) }) : null;
+          if (back) list.push(back);
+        }
       }
     }
     if (k === 'daemonsets' && !gitops) list.push({ id: 'restart', title: t('wake.rv.act.restart'), command: `kubectl rollout restart daemonset/${r.name}${ns}` });
-    if (k === 'nodes') list.push({ id: 'cordon', title: t('wake.rv.act.cordon'), command: `kubectl cordon ${r.name}` }, { id: 'drain', title: t('wake.rv.act.drain'), command: `kubectl drain ${r.name} --ignore-daemonsets --delete-emptydir-data --timeout=10m` });
+    if (k === 'nodes') list.push({ id: 'cordon', title: t('wake.rv.act.cordon'), values: [{ path: 'spec.unschedulable', after: true, op: 'add' }] }, { id: 'drain', title: t('wake.rv.act.drain'), command: `kubectl drain ${r.name} --ignore-daemonsets --delete-emptydir-data --timeout=10m` });
     if (k === 'cronjobs') list.push({ id: 'trigger', title: t('wake.rv.act.trigger'), command: `kubectl create job ${r.name}-manual --from=cronjob/${r.name}${ns}` },
       { id: 'suspend', title: t(r.suspend ? 'wake.rv.act.resume' : 'wake.rv.act.suspend'), values: [{ path: 'spec.suspend', before: !!r.suspend, after: !r.suspend }] });
     if (k === 'pods') list.push({ id: 'evict', title: 'Evict', command: `kubectl create --raw /api/v1/namespaces/${r.ns}/pods/${r.name}/eviction -f eviction.json` });
-    return list.map(change => ({ change, plan: planFor({ resource: raw, change, owner: k === 'pods' ? null : owner }) }));
+    /* 명령도 PR도 없는 되돌리기(context 없음 등)는 메뉴에 두지 않는다 */
+    return list.map(change => ({ change, plan: planFor({ resource: raw, change, owner: k === 'pods' ? null : owner, context: params.cluster }) }))
+      .filter(({ change, plan }) => !change.rollback || plan.route === 'pr' || plan.command);
   }
   const actButton = () => (changes().length ? C.button.render({ label: t('wake.rv.act'), icon: 'group-check', variant: 'secondary', size: 'sm', round: true, menu: 'wake.detail.act' }) : '');
 
@@ -1119,7 +1131,8 @@ bootPage(config, async ctx => {
       'wake.detail.managed': () => { st.managed = !st.managed; load(); },
       'wake.detail.ask': () => phase === 'ready' && ctx.api.openPanel({ prompt: t('wake.list.askRow', { target: [kind?.kind, r.ns, r.name].filter(Boolean).join(' ') }) }),
       'wake.detail.plan': a => { const x = changes().find(c => c.change.id === (a.arg?.value ?? a.arg)); if (!x) return; const p = x.plan;
-        ctx.api.openPanel({ prompt: t('wake.rv.act.prompt', { title: x.change.title, target: [kind?.kind, r.ns, r.name].filter(Boolean).join(' '), how: p.route === 'pr' ? `Draft PR · ${[p.app, p.repo, p.path].filter(Boolean).join(' · ')}` : p.command || '' }) }); },
+        const how = p.route === 'pr' ? `Draft PR · ${[p.app, p.repo, p.path].filter(Boolean).join(' · ')}` : [p.preview || p.command || '', p.checks?.includes('helm-previous-release') ? t('wake.inc.opt.helmPrevious', { release: p.release }) : ''].filter(Boolean).join(' · ');
+        ctx.api.openPanel({ prompt: t('wake.rv.act.prompt', { title: x.change.title, target: [kind?.kind, r.ns, r.name].filter(Boolean).join(' '), how }) }); },
     },
     menus: {
       ...logMenus(t, () => ls),

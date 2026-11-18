@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { decodeHistory, encodeHistory, pushHistory, ratePerSec, leaseBody, microTime, podReady, HISTORY_MINUTES, LEASE_SECONDS, WATCH } from './agent.mjs';
+import { decodeHistory, encodeHistory, pushHistory, ratePerSec, leaseBody, cacheOf, microTime, podReady, HISTORY_MINUTES, LEASE_SECONDS, WATCH } from './agent.mjs';
 
 test('history_round_trips_and_keeps_empty_minutes', () => {
   const h = decodeHistory('100|38,,41');
@@ -40,6 +40,22 @@ test('lease_body_renews_with_holder_and_transitions', () => {
   assert.deepEqual(same.metadata.ownerReferences, [{ kind: 'DaemonSet' }]); assert.equal(same.metadata.annotations['wake-agent/cluster-id'], undefined);
   const next = leaseBody({ name: 'wake-agent-n1', namespace: 'wake-system', node: 'n1', pod: 'p2', owner: null, previous: prev, now: 9000, apiMs: 12, dnsMs: 2, cache, history });
   assert.equal(next.spec.leaseTransitions, 1); assert.equal(next.spec.acquireTime, microTime(9000));
+});
+
+test('a_watch_that_lost_its_sync_publishes_its_values_as_unknown_while_the_lease_is_still_renewed', () => {
+  const nodes = new Map([['n', { status: { conditions: [{ type: 'Ready', status: 'True' }] } }]]), pods = new Map([['a', { status: { phase: 'Running', conditions: [{ type: 'Ready', status: 'True' }] } }], ['b', { status: { phase: 'Running' } }]]);
+  const fresh = cacheOf({ nodes, pods, rate: 0.2, health: { Node: { synced: true, at: 1000 }, Pod: { synced: true, at: 2000 } } });
+  assert.deepEqual(fresh, { objects: 3, rate: 0.2, pods: 2, podsNotReady: 1, nodeReady: true });
+  /* the Pod watch failed after a good list: the old Pod cache is kept in memory but is no longer published as now */
+  const health = { Node: { synced: true, at: 9000 }, Pod: { synced: false, at: 2000 } };
+  const stale = cacheOf({ nodes, pods, rate: 0.2, health });
+  assert.deepEqual([stale.pods, stale.podsNotReady, stale.objects, stale.nodeReady], [null, null, null, true]);
+  const body = leaseBody({ name: 'wake-agent-n1', namespace: 'wake-system', node: 'n1', pod: 'p1', owner: null, previous: null, now: 10000, apiMs: 5, dnsMs: 1, cache: stale, history: { start: null, values: [] }, health });
+  const a = body.metadata.annotations;
+  assert.deepEqual([a['wake-agent/pods'], a['wake-agent/pods-not-ready'], a['wake-agent/objects'], a['wake-agent/node-ready']], ['', '', '', 'true']);
+  assert.equal(a['wake-agent/watch-synced'], 'Node', 'the watches in sync, apart from the Lease renewal');
+  assert.equal(a['wake-agent/watch-synced-at'], new Date(2000).toISOString(), 'the oldest last time a watch matched its source');
+  assert.equal(body.spec.renewTime, microTime(10000));
 });
 
 test('pod_ready_reads_condition', () => {

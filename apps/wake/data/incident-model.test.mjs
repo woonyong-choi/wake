@@ -224,23 +224,31 @@ test('verifyVerdict: pending, pass, fail and the blind-window deadline', () => {
   const early = verifyVerdict({ verifyFrom: V, now: V + 2 * MIN, windows: Array(5).fill('ok') });
   assert.equal(early.state, 'pending');
   assert.equal(early.left, need - 2 * MIN);
-  assert.equal(early.deadline, V + max);
   assert.equal(early.windows.length, max / cadence);
   assert.equal(early.windows.at(-1), 'none');
   assert.equal(verifyVerdict({ verifyFrom: V, now: V + need, windows: Array(11).fill('ok') }).state, 'pass');
   const fail = verifyVerdict({ verifyFrom: V, now: V + 3 * MIN, windows: ['ok', 'ok', 'ok', 'ok', 'ok', 'bad', 'ok'] });
   assert.equal(fail.state, 'fail');
   assert.equal(fail.failAt, V + 5 * cadence);
-  /* two blind windows: the deadline moves two windows later and the stable time stops while blind */
-  const blind = verifyVerdict({ verifyFrom: V, now: V + need, windows: ['ok', 'ok', 'ok', 'miss', 'miss', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok'] });
-  assert.equal(blind.deadline, V + max + 2 * cadence);
-  assert.equal(blind.stable, need - 2 * cadence);
-  assert.equal(blind.state, 'pending');
   /* a blind last window never passes */
   assert.equal(verifyVerdict({ verifyFrom: V, now: V + need + 2 * cadence, windows: [...Array(12).fill('ok'), 'miss'] }).state, 'pending');
   /* blind for the whole limit: no verdict */
   assert.equal(verifyVerdict({ verifyFrom: V, now: V + max, windows: Array(max / cadence).fill('miss') }).state, 'inconclusive');
-  assert.equal(verifyVerdict({ verifyFrom: V, now: V + 2 * max, windows: Array(max / cadence).fill('miss') }).deadline, V + 2 * max);
+});
+
+test('verifyVerdict: a missed window restarts the healthy streak, so health on both sides of a blind spell never adds up', () => {
+  const { cadence, need, max } = VERIFY_DEFAULT, V = T0 + 10 * MIN, ok = n => Array(n).fill('ok');
+  const split = verifyVerdict({ verifyFrom: V, now: V + 12 * cadence, windows: [...ok(5), 'miss', ...ok(6)] });
+  assert.equal(split.state, 'pending', 'five healthy windows, a miss and six more are not five continuous minutes');
+  assert.equal(split.stable, 5 * cadence, 'the stable time counts from the first healthy window after the miss');
+  assert.equal(verifyVerdict({ verifyFrom: V, now: V + 17 * cadence, windows: [...ok(5), 'miss', ...ok(11)] }).state, 'pass', 'eleven healthy windows in a row after the miss pass');
+  assert.equal(verifyVerdict({ verifyFrom: V, now: V + 20 * cadence, windows: [...ok(19), 'miss'] }).stable, 0);
+  /* a long check with misses scattered through it is still pending: only ten continuous minutes blind end it without a verdict */
+  const scattered = Array.from({ length: 60 }, (_, i) => (i % 3 === 2 ? 'miss' : 'ok'));
+  assert.equal(verifyVerdict({ verifyFrom: V, now: V + 60 * cadence, windows: scattered }).state, 'pending');
+  assert.equal(verifyVerdict({ verifyFrom: V, now: V + 30 * cadence, windows: [...ok(10), ...Array(max / cadence - 1).fill('miss')] }).state, 'pending');
+  assert.equal(verifyVerdict({ verifyFrom: V, now: V + 30 * cadence, windows: [...ok(10), ...Array(max / cadence).fill('miss')] }).state, 'inconclusive');
+  assert.equal(split.left, need - 5 * cadence);
 });
 
 test('recoveryKind and recoveryTone: only a service recovery is ok (N13)', () => {

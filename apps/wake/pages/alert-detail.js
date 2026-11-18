@@ -28,7 +28,7 @@ bootPage(config, ctx => {
     phase = 'loading'; ctx.update();
     await sources.read();
     try {
-      snap = await data.get('alerts', { cluster: id }); incidents = (await data.get('incidents').catch(() => [])).filter(i => i.cluster === id);
+      snap = await data.get('alerts', { cluster: id }); incidents = await data.get('incidents', { cluster: id }).catch(() => []);
       const a = alert(); phase = a ? 'ready' : 'missing';
       if (a) { range ??= windowFor(a); void readExpr(); }
     } catch (e) { phase = e?.kind === 'unconfigured' ? 'unconfigured' : e?.status === 403 ? 'forbidden' : 'error'; }

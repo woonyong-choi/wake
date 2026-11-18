@@ -69,23 +69,27 @@ const MAX_EXEC_CREDENTIALS = 64;
 const credCache = new Map(), credRuns = new Map();
 /* exec 인증 도구에 넘기는 환경: 앱 환경 전체가 아니라 셸·로캘·kubeconfig·클라우드 CLI가 쓰는 것만(그 밖의 비밀 환경 값은 넘기지 않음) + kubeconfig의 exec.env */
 const EXEC_ENV = /^(?:PATH|HOME|USER|LOGNAME|SHELL|TMPDIR|LANG|LC_[A-Z_]+|KUBECONFIG|AWS_[A-Z0-9_]+|AZURE_[A-Z0-9_]+|GOOGLE_[A-Z0-9_]+|CLOUDSDK_[A-Z0-9_]+)$/;
-/** exec 명령 하나의 동의 열쇠: 찾은 명령의 실제 경로와 인자(다른 인자는 다른 명령) */
-const execConsentKey = (cmd, args = []) => createHash('sha256').update(JSON.stringify(['exec-consent-v1', cmd, args])).digest('hex');
+/** exec 명령 하나의 동의 열쇠: 실행 파일(실제 경로·장치·inode·크기·변경 시각), 인자, kubeconfig의 exec.env(이름과 값). 하나라도 바뀌면 다른 명령(다시 동의) */
+const execConsentKey = invocation => createHash('sha256').update(JSON.stringify(['exec-consent-v2', invocation.identity, invocation.args, invocation.kubeEnv])).digest('hex');
+/** 동의 창·기록에 보이는 것: 명령 경로, 가린 인자(argsPreview), kubeconfig 환경 변수 이름(값은 보이지 않음) */
+const execConsentView = invocation => ({ command: invocation.cmd, args: require('../data/mask.js').argsPreview(invocation.args), env: invocation.kubeEnv.map(([name]) => name) });
 function execInvocation(exec, env) {
   const e = Object.create(null);
   for (const [name, value] of Object.entries(env || {})) if (EXEC_ENV.test(name) && typeof value === 'string') e[name] = value;
   e.PATH = execPath(env);
-  for (const x of exec.env || []) if (x?.name) e[x.name] = String(x.value ?? '');
+  const kubeEnv = (exec.env || []).filter(x => x?.name).map(x => [String(x.name), String(x.value ?? '')]);
+  for (const [name, value] of kubeEnv) e[name] = value;
   const cmd = findCommand(exec.command, e);
   if (!cmd) throw new K8sError('noAuthTool', `${exec.command}: command not found`, { command: exec.command, installHint: exec.installHint || '' });
   e.KUBERNETES_EXEC_INFO = JSON.stringify({ apiVersion: exec.apiVersion || 'client.authentication.k8s.io/v1beta1', kind: 'ExecCredential', spec: { interactive: false } });
-  return { cmd, args: exec.args || [], env: e };
+  const file = fs.statSync(cmd);
+  const identity = { path: fs.realpathSync(cmd), dev: file.dev, ino: file.ino, size: file.size, mtimeMs: file.mtimeMs };
+  return { cmd, args: (exec.args || []).map(String), env: e, kubeEnv, identity };
 }
-/* 처음 쓰는 exec 명령은 사람이 그 명령·인자를 보고 동의해야 실행한다(consent.granted(열쇠)가 거짓이면 실행하지 않고 needs_consent) */
+/* 처음 쓰는 exec 명령은 사람이 그 명령·인자·환경 이름을 보고 동의해야 실행한다(consent.granted(열쇠)가 거짓이면 실행하지 않고 needs_consent) */
 function requireConsent(invocation, consent) {
-  if (!consent || consent.granted(execConsentKey(invocation.cmd, invocation.args))) return;
-  throw new K8sError('needs_consent', `${invocation.cmd}: running this authentication command needs your consent`,
-    { code: 'EXEC_CONSENT_REQUIRED', command: invocation.cmd, args: [...invocation.args] });
+  if (!consent || consent.granted(execConsentKey(invocation))) return;
+  throw new K8sError('needs_consent', `${invocation.cmd}: running this authentication command needs your consent`, { code: 'EXEC_CONSENT_REQUIRED', ...execConsentView(invocation) });
 }
 
 function runExec(exec, env, audience, consent) {
@@ -109,7 +113,9 @@ function runExec(exec, env, audience, consent) {
       if (err) return reject(new K8sError('unauthorized', `${exec.command}: authentication failed`, { step: 'exec' }));
       try {
         const st = JSON.parse(stdout).status || {};
-        const cred = { token: st.token, cert: st.clientCertificateData, key: st.clientKeyData };
+        /* ExecCredential의 인증서·키는 PEM 글: kubeconfig 필드처럼 base64로 바꿔 같은 길(b64)로 쓴다 */
+        const pemB64 = v => (typeof v === 'string' && v ? Buffer.from(v, 'utf8').toString('base64') : undefined);
+        const cred = { token: st.token, cert: pemB64(st.clientCertificateData), key: pemB64(st.clientKeyData) };
         if (credCache.size >= MAX_EXEC_CREDENTIALS) credCache.delete(credCache.keys().next().value);
         credCache.set(key, { cred, until: st.expirationTimestamp ? Date.parse(st.expirationTimestamp) : Date.now() + 5 * 60000 });
         resolve(cred);
@@ -489,7 +495,7 @@ function createClient(kc, ctxName, { keychain, env = process.env, credentialScop
   return { ctx, cluster: cl, user, url, reach, handshake, request, watch, getMetadata, getToolSecretMetadata, getToolBootstrapSecret, upgrade, credentials, checkExec, execCommand: user.exec?.command || null, namespace: ctx.namespace || 'default' };
 }
 
-module.exports = { createClient, findCommand, execPath, execInvocation, execConsentKey, K8sError };
+module.exports = { createClient, findCommand, execPath, execInvocation, execConsentKey, execConsentView, K8sError };
 
 function withRequestScope(client, scope = {}) {
   const options = defaultLimit => {

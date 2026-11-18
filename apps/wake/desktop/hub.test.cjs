@@ -123,20 +123,79 @@ test('the server answers MCP and the HTTP API only with a client token of that t
 test('approvals keep the first decision, never run anything, and record a Draft PR that cannot be made without GitHub', async () => {
   const store = createHubStore({ userData: tmp(), maskText });
   const audits = [];
-  const plan = { id: 'raise-memory', route: 'pr', values: [{ path: 'a.b', before: '1', after: '2' }] };
-  const hub = { get: () => ({ cluster: 'c1' }), workspace: async () => ({ options: [{ id: 'raise-memory', title: 'raise', plan }] }), choose: () => {} };
-  const approvals = createApprovals({ store, hub, sources: {}, audit: r => audits.push(r) });
+  const plan = { id: 'raise-memory', route: 'pr', target: { kind: 'Deployment', namespace: 'shop', name: 'api' }, values: [{ path: 'a.b', before: '1', after: '2' }] };
+  const hub = { get: () => ({ cluster: 'c1', target: plan.target }), workspace: async () => ({ options: [{ id: 'raise-memory', title: 'raise', plan }] }), choose: () => {} };
+  const approvals = createApprovals({ store, hub, sources: {}, audit: r => audits.push(r), confirm: async () => true });
   const p = await approvals.propose({ incident: 'i1', option: 'raise-memory', target: { cluster: 'c1', namespace: 'shop', kind: 'Deployment', name: 'api' } }, external({ cluster: 'c1' }));
   assert.equal(p.state, 'waiting');
   assert.equal(approvals.pending().length, 1);
-  const d = approvals.decide(p.approval, 'allow', { by: 'oncall' });
+  const d = await approvals.decide(p.approval, 'allow', { by: 'oncall' });
   assert.equal(d.state, 'approved');
   assert.equal(d.pr, 'github-unconnected');
-  const again = approvals.decide(p.approval, 'deny', { by: 'someone' });
+  const again = await approvals.decide(p.approval, 'deny', { by: 'someone' });
   assert.equal(again.state, 'approved');
   assert.equal(again.replayed, true);
   assert.equal(audits.length, 1);
   assert.equal(audits[0].summary.$t, 'wake.audit.approve.prUnconnected');
+});
+
+/* review 5: the scope was checked on the supplied target while the plan came from a separately supplied incident, so a caller of cluster c1
+   received (and recorded under c1) a plan of an incident in c2. The incident option must name the same cluster and object as the target */
+const incidentHub = () => {
+  const plan = { id: 'raise-memory', route: 'command', target: { kind: 'Deployment', namespace: 'shop', name: 'api' }, values: [{ path: 'spec.x', before: '1', after: '2' }], command: 'kubectl patch deployment/api -n shop' };
+  return { get: id => ({ i1: { cluster: 'c1', target: { kind: 'Deployment', namespace: 'shop', name: 'api' } }, i2: { cluster: 'c2', target: { kind: 'Deployment', namespace: 'shop', name: 'api' } } })[id] ?? null,
+    workspace: async () => ({ options: [{ id: 'raise-memory', title: 'raise', plan }] }), choose: () => {} };
+};
+test('a_proposal_from_an_incident_option_is_refused_unless_the_incident_and_its_plan_name_the_requested_cluster_and_object', async () => {
+  const store = createHubStore({ userData: tmp(), maskText });
+  const approvals = createApprovals({ store, hub: incidentHub(), sources: {}, audit: () => {}, confirm: async () => true });
+  const target = (extra = {}) => ({ cluster: 'c1', namespace: 'shop', kind: 'Deployment', name: 'api', ...extra });
+  await assert.rejects(approvals.propose({ incident: 'i2', option: 'raise-memory', target: target() }, external({ cluster: 'c1' })), e => e.kind === 'invalid_request', 'an incident of another cluster');
+  await assert.rejects(approvals.propose({ incident: 'i1', option: 'raise-memory', target: target({ name: 'web' }) }, external({ cluster: 'c1' })), e => e.kind === 'invalid_request', 'another object of the same cluster');
+  await assert.rejects(approvals.propose({ incident: 'i1', option: 'raise-memory', target: target({ namespace: 'other' }) }, external({ cluster: 'c1' })), e => e.kind === 'invalid_request', 'another namespace');
+  assert.equal(approvals.pending().length, 0, 'nothing was recorded for a mismatch');
+  const ok = await approvals.propose({ incident: 'i1', option: 'raise-memory', target: target({ kind: 'deployments' }) }, external({ cluster: 'c1' }));
+  assert.equal(ok.state, 'waiting');
+  assert.deepEqual(approvals.pending().map(a => [a.cluster, a.target.name]), [['c1', 'api']]);
+  /* through the tool layer: a client scoped to c1 never gets the plan of the c2 incident */
+  const tools = createToolLayer({ sources: { sourceState: () => null }, hub: incidentHub(), store, approvals, screen: {}, report: async () => ({}) });
+  const r = await tools.call('propose_action', { incident: 'i2', option: 'raise-memory', target: target() }, external({ cluster: 'c1' }));
+  assert.equal(r.result, undefined);
+  assert.equal(r.error, 'invalid_request');
+});
+
+/* review 5: an in-app page could submit approval.decide and it was recorded as the local person's approval. Allowing waits for the main
+   process confirmation shown for that approval id and plan hash; without it, or with a changed plan, nothing is recorded */
+test('allowing_a_proposal_records_nothing_without_the_main_process_confirmation_of_that_approval_and_plan', async () => {
+  const store = createHubStore({ userData: tmp(), maskText });
+  const audits = [], asked = [];
+  let answer = false, during = null;
+  const approvals = createApprovals({ store, hub: incidentHub(), sources: {}, audit: r => audits.push(r),
+    confirm: async shown => { asked.push(shown); await during?.(); return answer; } });
+  const p = await approvals.propose({ incident: 'i1', option: 'raise-memory', target: { cluster: 'c1', namespace: 'shop', kind: 'Deployment', name: 'api' } }, external({ cluster: 'c1' }));
+  const saved = store.docs('approvals').get(p.approval);
+  assert.match(saved.planHash, /^[0-9a-f]{64}$/, 'the plan hash is kept with the request');
+  await assert.rejects(approvals.decide(p.approval, 'allow', { by: 'oncall' }), e => e.kind === 'not_confirmed', 'cancelled in the confirmation');
+  assert.equal(asked[0].id, p.approval);
+  assert.equal(asked[0].planHash, saved.planHash);
+  assert.equal(asked[0].cluster, 'c1');
+  assert.match(asked[0].diff, /spec\.x/);
+  assert.equal(store.docs('approvals').get(p.approval).state, 'waiting');
+  const unconfirmed = createApprovals({ store, hub: incidentHub(), sources: {}, audit: r => audits.push(r) });
+  await assert.rejects(unconfirmed.decide(p.approval, 'allow', { by: 'oncall' }), e => e.kind === 'not_confirmed', 'no main process confirmation at all');
+  /* the plan changes while the dialog is open: the confirmation was for another plan */
+  answer = true; during = async () => { store.docs('approvals').put(p.approval, { ...saved, plan: { ...saved.plan, values: [{ path: 'spec.x', before: '1', after: '9' }] } }); };
+  await assert.rejects(approvals.decide(p.approval, 'allow', { by: 'oncall' }), e => e.kind === 'plan_changed');
+  assert.equal(store.docs('approvals').get(p.approval).state, 'waiting');
+  assert.equal(audits.length, 0, 'no decision row without a matching confirmation');
+  store.docs('approvals').put(p.approval, saved); during = null;
+  const d = await approvals.decide(p.approval, 'allow', { by: 'oncall' });
+  assert.equal(d.state, 'approved');
+  assert.equal(audits[0].planHash, saved.planHash);
+  /* refusing changes nothing outside Wake and needs no confirmation */
+  const q = await approvals.propose({ incident: 'i1', option: 'raise-memory', target: { cluster: 'c1', namespace: 'shop', kind: 'Deployment', name: 'api' } }, external({ cluster: 'c1' }));
+  answer = false;
+  assert.equal((await approvals.decide(q.approval, 'deny', { by: 'oncall' })).state, 'denied');
 });
 
 test('the built-in AI runs tools in the main process and records the model call (provider stand-in)', async t => {
@@ -171,4 +230,70 @@ test('without a provider the built-in AI saves the question and failure under it
   const saved = store.docs('conversations').get(result.conversation);
   assert.equal(saved.messages[0].text, 'hi');
   assert.equal(saved.messages[1].error, 'unconfigured');
+});
+
+/* review 8: log lines read for a model tool or frozen as evidence relied on the label patterns, so an opaque credential printed without a label
+   survived. read_logs (and the logs evidence built from it) passes the shared disclosure policy */
+test('log_lines_read_by_a_tool_or_frozen_as_evidence_pass_the_disclosure_policy', async () => {
+  const opaque = 'Zq8RkT2mW9xLp4Vb7Nc3Hd6Jf1Gs5Ya0Ue';
+  const cited = [];
+  const { tools } = layer({ sources: { kube: async () => `2026-11-15T00:00:01Z connected with ${opaque}\n` },
+    hub: { get: () => ({ id: 'i1', cluster: 'c1', detectedAt: Date.parse('2026-11-15T00:00:00Z'), target: { kind: 'Deployment', namespace: 'shop', name: 'api' } }), cite: (inc, piece) => { cited.push(piece); return { n: 1, hash: 'h' }; } } });
+  const window = { from: '2026-11-15T00:00:00Z', to: '2026-11-15T00:10:00Z' };
+  const read = await tools.call('read_logs', { cluster: 'c1', namespace: 'shop', pod: 'api-1', window }, external({ cluster: 'c1', namespaces: ['shop'] }));
+  assert.equal(read.result.lines[0].text, 'connected with ••••');
+  await tools.call('collect_evidence', { incident: 'i1', spec: { kind: 'logs', name: 'api-1', window } }, external({ cluster: 'c1', namespaces: ['shop'] }));
+  assert.doesNotMatch(JSON.stringify(cited), new RegExp(opaque));
+});
+
+/* recheck 8: an incident id sent with a generic change (no option) skipped the incident check and the approved change became that incident's chosen
+   action. An incident needs its option, and the incident's own target and UID must be the live object before anything is saved */
+test('a_proposal_names_an_incident_only_with_its_option_and_the_incident_target_uid_must_be_the_live_object', async () => {
+  const store = createHubStore({ userData: tmp(), maskText });
+  let live = { kind: 'Deployment', metadata: { name: 'api', namespace: 'shop', uid: 'uid-new', resourceVersion: '9' }, spec: { x: '1' } };
+  const hub = incidentHub(), chosen = [];
+  hub.get = id => (id === 'i1' ? { cluster: 'c1', target: { kind: 'Deployment', namespace: 'shop', name: 'api', uid: 'uid-old' } } : null);
+  hub.choose = (...a) => chosen.push(a);
+  const approvals = createApprovals({ store, hub, sources: { get: async () => live, list: async () => [] }, audit: () => {}, confirm: async () => true });
+  const target = { cluster: 'c1', namespace: 'shop', kind: 'Deployment', name: 'api' };
+  await assert.rejects(approvals.propose({ incident: 'i1', target, change: { title: 't', values: [{ path: 'spec.x', before: '1', after: '2' }] } }, external({ cluster: 'c1' })), e => e.kind === 'invalid_request', 'an incident without its option');
+  await assert.rejects(approvals.propose({ option: 'raise-memory', target }, external({ cluster: 'c1' })), e => e.kind === 'invalid_request', 'an option without its incident');
+  await assert.rejects(approvals.propose({ incident: 'i1', option: 'raise-memory', target }, external({ cluster: 'c1' })), e => e.kind === 'invalid_request', 'the incident object was replaced (UID)');
+  assert.equal(approvals.pending().length, 0);
+  live = { ...live, metadata: { ...live.metadata, uid: 'uid-old' } };
+  assert.equal((await approvals.propose({ incident: 'i1', option: 'raise-memory', target }, external({ cluster: 'c1' }))).state, 'waiting');
+});
+
+/* recheck 5: a generic proposal could omit the context and the before values, so its command followed the operator's current context and
+   overwrote whatever value was there. Every value needs its before, which must be the live value, and the plan names the cluster context */
+test('a_generic_proposal_needs_before_values_that_match_the_live_object_and_its_plan_names_the_cluster_context', async () => {
+  const store = createHubStore({ userData: tmp(), maskText });
+  const live = { kind: 'Deployment', metadata: { name: 'api', namespace: 'shop', uid: 'u1', resourceVersion: '7' }, spec: { template: { spec: { containers: [{ name: 'app', resources: { limits: { memory: '64Mi' } } }] } } } };
+  const approvals = createApprovals({ store, hub: incidentHub(), sources: { get: async () => live, list: async () => [] }, audit: () => {} });
+  const target = { cluster: 'kind-c1', namespace: 'shop', kind: 'Deployment', name: 'api' }, path = 'spec.template.spec.containers[0].resources.limits.memory';
+  await assert.rejects(approvals.propose({ target, change: { title: 't', values: [{ path, after: '128Mi' }] } }, external({ cluster: 'kind-c1' })), e => e.kind === 'invalid_request', 'no before');
+  await assert.rejects(approvals.propose({ target, change: { title: 't', values: [{ path, before: '32Mi', after: '128Mi' }] } }, external({ cluster: 'kind-c1' })), e => e.kind === 'invalid_request', 'a before that is not the live value');
+  await assert.rejects(approvals.propose({ target, change: { title: 't', values: [] } }, external({ cluster: 'kind-c1' })), e => e.kind === 'invalid_request', 'no value');
+  const ok = await approvals.propose({ target, change: { title: 't', values: [{ path, before: '64Mi', after: '128Mi' }] } }, external({ cluster: 'kind-c1' }));
+  assert.match(ok.plan.command, /--context 'kind-c1'/);
+  assert.match(ok.plan.command, /"op":"test","path":"\/metadata\/uid","value":"u1"/);
+  assert.match(ok.plan.command, /"op":"test","path":"\/spec\/template\/spec\/containers\/0\/resources\/limits\/memory","value":"64Mi"/);
+  const { tools } = layer();
+  assert.equal(tools.list().find(t => t.name === 'propose_action').inputSchema.properties.change.properties.values.items.required.includes('before'), true, 'the tool schema asks for before');
+});
+
+/* round 3 finding 8: a live spec.replicas 2 passed against "2", and the JSON patch then tested the string "2" and wrote "3": a patch that can
+   never apply. Values follow the live field type: numbers and booleans stay typed in the test and replace operations */
+test('a_generic_proposal_keeps_the_live_field_type_in_its_json_patch_and_refuses_a_value_of_another_type', async () => {
+  const store = createHubStore({ userData: tmp(), maskText });
+  const live = { kind: 'Deployment', metadata: { name: 'api', namespace: 'shop', uid: 'u1' }, spec: { replicas: 2, paused: false, template: { spec: { containers: [{ name: 'app', image: 'x:1' }] } } } };
+  const approvals = createApprovals({ store, hub: incidentHub(), sources: { get: async () => live, list: async () => [] }, audit: () => {} });
+  const target = { cluster: 'c1', namespace: 'shop', kind: 'Deployment', name: 'api' };
+  const ok = await approvals.propose({ target, change: { title: 't', values: [{ path: 'spec.replicas', before: '2', after: '3' }, { path: 'spec.paused', before: 'false', after: 'true' }] } }, external({ cluster: 'c1' }));
+  const ops = JSON.parse(/-p '([^']*)'/.exec(ok.plan.command)[1]);
+  assert.deepEqual(ops.filter(o => o.path === '/spec/replicas').map(o => [o.op, o.value]), [['test', 2], ['replace', 3]]);
+  assert.deepEqual(ops.filter(o => o.path === '/spec/paused').map(o => [o.op, o.value]), [['test', false], ['replace', true]]);
+  await assert.rejects(approvals.propose({ target, change: { title: 't', values: [{ path: 'spec.replicas', before: '2', after: 'three' }] } }, external({ cluster: 'c1' })), e => e.kind === 'invalid_request', 'not a number');
+  await assert.rejects(approvals.propose({ target, change: { title: 't', values: [{ path: 'spec.paused', before: 'false', after: 'yes' }] } }, external({ cluster: 'c1' })), e => e.kind === 'invalid_request', 'not a boolean');
+  await assert.rejects(approvals.propose({ target, change: { title: 't', values: [{ path: 'spec.template', before: '[object Object]', after: 'x' }] } }, external({ cluster: 'c1' })), e => e.kind === 'invalid_request', 'not a scalar field');
 });

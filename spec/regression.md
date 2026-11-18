@@ -204,7 +204,7 @@
 ### J-115 승인된 샌키 표현 보존
 
 - 목표: 입력: sankey-review의 11개 상황을 같은 시계·테마·폭으로 연다 → 기대: B-031의 2026-11-13 승인 규칙을 상속한다; [RULE-SANKEY](rules.md#RULE-SANKEY);  그라데이션 흐름과 경고·실패의 동기화된 상태 모션을 유지한다; 실패: 띠 끝 틈·이름 말줄임·묶음 누락·경고 모션 비동기가 있으면 실패.
-- 현재: 저장소 `sankey-review.html`이 `sankey-review.js:55–76`의 11개 상황을 연다. 재현 파일 존재는 확인했으며 이번 문서 교정에서 렌더 비교는 실행하지 않았다.
+- 현재: 저장소 `design/sankey/sankey-review.html`이 `design/sankey/sankey-review.js:55–76`의 11개 상황을 연다. 재현 파일 존재는 확인했으며 이번 문서 교정에서 렌더 비교는 실행하지 않았다.
 - 차이: G-T-07-SANK. 같은 테마·폭·시계의 전후 그림에서 띠 끝 틈·외곽선 단절·이름 잘림·묶음 누락이 하나라도 있으면 실패다.
 - 고정 장치: 고정 없음 → G-T-07-SANK
 - 출처: B-031; 2026-11-13 승인 메모; D00862, D00872 및 4차 사용자 지시.
@@ -487,7 +487,7 @@
 | [backend.md](backend.md) | F-BE-011 | 파일·부분·공백 | `A/data/incident-model.test.mjs`, `A/desktop/ai-target.test.cjs` |
 | [backend.md](backend.md) | F-BE-012 | 파일·부분·공백 | `A/data/audit.test.mjs`, `A/desktop/hub.test.cjs` |
 | [backend.md](backend.md) | F-BE-013 | 파일·부분·공백 | `A/ai-hub.test.mjs`, `A/ai-target-flow.test.mjs`, `K/shell/panel-engine.test.mjs` |
-| [backend.md](backend.md) | F-BE-018 | 파일·부분 | `A/data/incident-detect.test.mjs`, `A/data/incident-model.test.mjs`, `A/desktop/hub.test.cjs` |
+| [backend.md](backend.md) | F-BE-018 | 파일·부분 | `A/agent/agent.test.mjs`, `A/data/incident-detect.test.mjs`, `A/data/incident-model.test.mjs`, `A/data/ownership.test.mjs`, `A/desktop/agent-heartbeat.test.cjs`, `A/desktop/incident-hub.test.cjs`, `A/desktop/hub.test.cjs`, `A/pages/cluster-home.test.mjs`, `A/pages/resource-pages.test.mjs` |
 | [backend.md](backend.md) | F-BE-019 | 파일·부분·공백 | `K/tools/check-deps.mjs`, `K/tools/check-release.mjs`, `K/tools/unused-check.mjs` |
 | [backend.md](backend.md) | F-BE-021 | 파일·부분·공백 | `A/data/find.test.mjs` |
 | [backend.md](backend.md) | F-BE-022 | 파일·부분·공백 | `A/data/incident-model.test.mjs` |

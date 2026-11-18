@@ -375,7 +375,7 @@ function create({ userData, send, remoteConfig, terminalProgram, ptyLoader = loa
     },
     run(input, owner) {
       if (!input || input.mode !== 'local' || !validId(input.id) || !owner) return terminalFailure('TERMINAL_MODE_REQUIRED');
-      const { id, command, env = {}, cols = 80, rows = 24, cwd } = input;
+      const { id, command, env = {}, cols = 80, rows = 24, cwd, onExit } = input;
       const old = sessions.get(id);
       if (old && (old.owner !== owner || old.mode !== 'local')) return terminalFailure('TERMINAL_SESSION_CONFLICT');
       const target = launchTarget(env, cwd);
@@ -385,7 +385,8 @@ function create({ userData, send, remoteConfig, terminalProgram, ptyLoader = loa
       const proc = ptyLoader().spawn(target.shell, ['-l', '-i', '-c', target.restore + String(command)], { name: 'xterm-256color', cols, rows, cwd: target.cwd, env: target.base });
       const session = { proc, owner, mode: 'local' };
       proc.onData(data => send(owner, 'pty-data', id, data));
-      proc.onExit(({ exitCode, signal }) => { if (sessions.get(id) === session) sessions.delete(id); send(owner, 'pty-exit', id, signal ? null : exitCode); });
+      /* onExit: the main process's own cleanup for this run (files it prepared for the command), called once the process ends */
+      proc.onExit(({ exitCode, signal }) => { if (sessions.get(id) === session) sessions.delete(id); try { onExit?.(); } catch { /* best effort */ } send(owner, 'pty-exit', id, signal ? null : exitCode); });
       sessions.set(id, session);
       return { id, mode: 'local', user: os.userInfo().username };
     },

@@ -350,7 +350,9 @@ const realAgentPrep = async () => {
   const { createRequire } = await import('node:module'), path = await import('node:path'), fs = await import('node:fs'), os = await import('node:os');
   const file = new URL('../desktop/services.cjs', import.meta.url).pathname, source = fs.readFileSync(file, 'utf8');
   const start = source.indexOf("    'agent.prep':"), end = source.indexOf("    'agent.heartbeat':", start);
-  return runInNewContext('({' + source.slice(start, end) + '})', { path, fs, os, process, app: null, __dirname: path.dirname(file), require: createRequire(file) })['agent.prep'];
+  const bundledChart = path.join(path.dirname(file), 'agent-install-charts', 'wake-agent-only');
+  assert.ok(source.includes("const bundledChart = path.join(app?.isPackaged ? __dirname.replace(/app\\.asar(?=[\\\\/]|$)/, 'app.asar.unpacked') : __dirname, 'agent-install-charts', 'wake-agent-only');"), 'the services name the bundled chart this way');
+  return runInNewContext('({' + source.slice(start, end) + '})', { path, fs, os, process, app: null, __dirname: path.dirname(file), bundledChart, require: createRequire(file) })['agent.prep'];
 };
 /* D-USR-2026-11-18-34: the bundled chart now names the published image by digest, so the real answer lets the flow go on to the permission question */
 test('agent_install_with_the_real_desktop_answer_for_the_bundled_chart_reads_the_published_image_and_asks_permission_next', async () => {
@@ -367,7 +369,7 @@ test('agent_install_with_the_real_desktop_answer_for_the_bundled_chart_reads_the
   assert.notEqual(flows.get('agent-real').cause, 'imageUnpublished');
 });
 /* B2-15: an install the person may not do offered only a copy of the Helm line; "permission needed" leads to the permission sheet (its direct apply
-   runs the declared command in the terminal and waits for Enter) */
+   runs the declared command in the terminal after the desktop confirmation) */
 test('agent install without permission stops before Helm and leads to the permission sheet', async () => {
   const sheets = [];
   const flows = createFlows(fakeEnv({ service: async name => {
@@ -582,23 +584,23 @@ test('a_new_connection_whose_sign_in_command_needs_consent_offers_to_review_it',
   assert.equal(ACTIONS.consent.action, 'wake.exec.review');
 });
 
-/* 출시 직전 백엔드 남은 것: 클러스터에 쓰는 명령은 터미널에서 Enter를 기다리는데(commands.json confirm), 그동안 15초 출력 없음(응답 기다리는 중)이 떴다.
-   Enter를 누르기 전에는 사람이 할 차례라 출력 없음을 세지 않고, Enter 뒤부터 센다 */
-test('a_command_waiting_for_enter_is_not_reported_as_silent_until_the_person_presses_enter', async () => {
+/* 출시 직전 백엔드 남은 것: 클러스터에 쓰는 명령(commands.json confirm)은 사람의 확인을 기다리는데, 그동안 15초 출력 없음(응답 기다리는 중)이 떴다.
+   확인은 데스크톱의 OS 확인 창이 받는다(review 6): 첫 출력 전에는 사람이 할 차례라 출력 없음을 세지 않고, 첫 출력부터 센다 */
+test('a_command_waiting_for_the_desktop_confirmation_is_not_reported_as_silent_until_it_starts_printing', async () => {
   const oldQuiet = LIMITS.quietMs; LIMITS.quietMs = 30;
-  let input = null, finish = null;
+  let output = null, finish = null;
   const seen = [];
   try {
     const flows = createFlows(fakeEnv({ service: async name => (name === 'kube.can' ? { allowed: true } : name === 'agent.prep' ? { helm: true, chart: '/fixture/app/wake-agent-only', exists: true, image: { published: true } } : { lookup: 'present', rolloutReady: true }),
-      terminal: () => ({ run: ({ command, onInput }) => { assert.equal(command.confirm, true); input = onInput; return new Promise(r => { finish = r; }); }, cancel() {}, close() {} }) }));
-    const running = flows.run('agent-enter', 'agent', {}, null, { cluster: 'fixture-cluster', kind: 'agent' });
-    for (let i = 0; i < 40 && !input; i++) await new Promise(r => setTimeout(r, 5));
+      terminal: () => ({ run: ({ command, onOutput }) => { assert.equal(command.confirm, true); output = onOutput; return new Promise(r => { finish = r; }); }, cancel() {}, close() {} }) }));
+    const running = flows.run('agent-confirm', 'agent', {}, null, { cluster: 'fixture-cluster', kind: 'agent' });
+    for (let i = 0; i < 40 && !output; i++) await new Promise(r => setTimeout(r, 5));
     await new Promise(r => setTimeout(r, 1300));
-    seen.push(flows.get('agent-enter').cause);
-    input?.('\r');
+    seen.push(flows.get('agent-confirm').cause);
+    output?.('Release "wake-agent" does not exist. Installing it now.\n');
     await new Promise(r => setTimeout(r, 1300));
-    seen.push(flows.get('agent-enter').cause);
+    seen.push(flows.get('agent-confirm').cause);
     finish?.({ exit: 0 }); await running;
   } finally { LIMITS.quietMs = oldQuiet; }
-  assert.deepEqual(seen, [null, 'quiet'], 'no silence while it waits for Enter; silence counts after Enter');
+  assert.deepEqual(seen, [null, 'quiet'], 'no silence while the confirmation is open; silence counts after the command starts printing');
 });

@@ -9,7 +9,7 @@ import config, { incidentAddress, viewAddress } from '../app.config.js';
 import { bootPage, components as C, html, saveText, text } from '../../../kit/page/index.js';
 import { sourceOff } from '../data/index.js';
 import { status } from './parts.js';
-import { hm, hms, ymd, when, duration, evidenceTag, gradeOf, severityStatus, requesterMark, sourceBadge, auditSummary, routeOf, changeOf, recoveryWord } from './incident-parts.js';
+import { hm, hms, ymd, when, duration, evidenceTag, gradeOf, severityStatus, requesterMark, sourceBadge, auditSummary, routeSteps, compareOption, recoveryWord } from './incident-parts.js';
 import { KIND_LIST, restartsColumn } from '../data/kinds.js';
 import { CHANGE_LANES } from '../data/home.js';
 import { compareResources, compareHistory } from '../data/table-order.js';
@@ -50,13 +50,15 @@ bootPage(config, ctx => {
   const meta = () => ({ title: inc?.number ?? params.id, icon: 'incident', ownAsk: true,
     ...(inc ? { crumbs: crumbs(), context: { icon: 'incident', title: `${inc.number} ${inc.title}`, sub: `${inc.namespace} · ${inc.cluster}` } } : {}) });
   const resolved = () => inc.phase === 'resolved';
-  const chosen = () => inc.options.find(o => o.id === inc.chosen) ?? null;
+  /* 고른 조치: 승인 기록에 저장된 것이 먼저(지금 후보에서 빠졌어도 승인한 계획 그대로) */
+  const chosen = () => { const o = inc.options.find(x => x.id === inc.chosen) ?? null, ex = inc.execution; return ex?.plan ? { ...(o ?? {}), id: inc.chosen, title: ex.title ?? o?.title, plan: ex.plan } : o; };
   const elapsed = () => (resolved() ? inc.resolvedAt : inc.now) - inc.detectedAt;
 
   /* ---------- 머리 ---------- */
   function impactText() {
     const i = inc.impact; if (!i) return '';
-    return t('wake.inc.head.impactValue', { label: i.label, now: `${i.now}${i.unit}`, base: `${i.baseline}${i.unit}`, limit: `${i.threshold}${i.unit}`, from: hm(i.from) });
+    /* 고정한 근거의 마지막 표본이 오래됐거나 출처를 지금 읽지 못하면 "지금"이 아니라 그 표본 시각으로 */
+    return t(i.stale ? 'wake.inc.head.impactValueAt' : 'wake.inc.head.impactValue', { label: i.label, now: `${i.now}${i.unit}`, at: hm(i.at), base: `${i.baseline}${i.unit}`, limit: `${i.threshold}${i.unit}`, from: hm(i.from) });
   }
   function focusLine() {
     const o = chosen(), tg = inc.target, impact = impactText();
@@ -122,12 +124,13 @@ bootPage(config, ctx => {
       items: [{ id: 'g', label: g.label, value: ch.conclusion, shrink: true, priority: 3 }],
       body: html`${C.reasoningChain.render({ grade: g, source: src, conclusion: ch.conclusion, cells, refAction: 'wake.inc.ref', refLabel: n => evidenceTag(t, inc.evidence?.find(e => String(e.n) === String(n))) })}${inc.rule ? C.statusIcon.render({ kind: 'idle', icon: 'shield-check', text: t('wake.inc.cause.rule', { name: inc.rule.name, version: inc.rule.version }) }) : ''}` };
   }
+  /* 고른 조치의 실행 단계: 승인 기록에 저장된 계획(없으면 후보의 계획)과 영수증으로만 상태를 정한다(승인만으로 적용 완료라고 하지 않음) */
+  const steps = () => { const plan = chosen()?.plan; return plan ? routeSteps(plan, inc.execution?.receipts) : []; };
   function actSection() {
     const o = chosen();
     if (!o && resolved() && !inc.options.length) return null; /* nothing was chosen and nothing is left to choose */
-    const body = !o ? C.actionCompare.render({ action: 'wake.inc.choose', options: inc.options.map(x => { const g = gradeOf(t, x.grade);
-      return { id: x.id, title: x.title, kind: x.kind, grade: { ...g, label: x.basis ? t('wake.inc.act.basis', { g: x.basis }) : t('wake.inc.act.grade', { g: g.label }) }, change: changeOf(t, x), reach: x.reach, note: x.note, route: routeOf(t, x.plan) }; }) })
-      : html`${routeOf(t, o.plan).map((text, i, all) => C.stepRow.render({ state: 'done', text, meta: i === all.length - 1 ? hm(inc.verify.verifyFrom) : '' }))}`;
+    const body = !o ? C.actionCompare.render({ action: 'wake.inc.choose', options: inc.options.map(x => compareOption(t, x)) })
+      : html`${steps().map(s => C.stepRow.render({ state: s.state, text: t(`wake.inc.route.${s.key}`) }))}`;
     return { id: 'act', label: t('wake.inc.stage.act'), open: isOpen('act', !o),
       items: o ? [{ id: 'o', label: t('wake.inc.act.selected'), value: o.title }] : [{ id: 'n', label: t('wake.inc.act.candidates'), value: String(inc.options.length) }], body };
   }
@@ -160,10 +163,11 @@ bootPage(config, ctx => {
         meta: [bad && warn ? t('wake.inc.flow.warn', { n: warn }) : '', t('wake.inc.flow.ok', { n: ok })].filter(Boolean).join(' · ') },
       { id: 'cause', label: t('wake.inc.stage.cause'), state: 'done', text: g.label },
       /* recovered with no action chosen: the act step is passed by, never left waiting for a choice */
-      o ? { id: 'act', label: t('wake.inc.stage.act'), state: 'done', text: t('wake.inc.flow.applyDone'), meta: o.title }
+      o ? (applied => ({ id: 'act', label: t('wake.inc.stage.act'), state: applied ? 'done' : 'wait', text: t(applied ? 'wake.inc.flow.applyDone' : 'wake.inc.flow.approved'), meta: o.title }))(steps().length > 0 && steps().every(s => s.state === 'done'))
         : done ? { id: 'act', label: t('wake.inc.stage.act'), state: 'idle', text: t('wake.inc.flow.noAct') }
         : { id: 'act', label: t('wake.inc.stage.act'), state: 'wait', text: t('wake.inc.flow.chooseWait'), meta: t('wake.inc.flow.actCount', { n: inc.options.length }) },
-      { id: 'verify', label: t('wake.inc.stage.verify'), state: done ? 'done' : 'idle', text: done ? t('wake.inc.flow.pass') : t('wake.inc.flow.afterApply'), meta: done ? hm(inc.resolvedAt) : '' },
+      /* 대상이 지워져 닫힌 인시던트는 확인을 통과한 것이 아니다: 그 결과 낱말(증상 회복)로 */
+      { id: 'verify', label: t('wake.inc.stage.verify'), state: done && !inc.target.gone ? 'done' : 'idle', text: done ? (inc.target.gone ? recoveryWord(t, inc.recovery) : t('wake.inc.flow.pass')) : t('wake.inc.flow.afterApply'), meta: done ? hm(inc.resolvedAt) : '' },
     ];
     const opts = inc.options;
     const decision = done || !opts.length ? null : { tone: 'warn', text: opts.length > 1 ? t('wake.inc.dec.more', { title: opts[0].title, n: opts.length - 1 }) : opts[0].title,
@@ -220,7 +224,7 @@ bootPage(config, ctx => {
       'wake.inc.ref': a => ctx.api.navigate(`${incidentAddress(inc)}/evidence/${encodeURIComponent(a.arg)}`, { presentation: 'detail' }),
       'wake.inc.source': a => ctx.api.navigate(`${viewAddress(params.cluster, 'tools')}?tool=${encodeURIComponent(a.arg)}`),
       'wake.inc.ask': () => ctx.api.openPanel({}),
-      'wake.inc.choose': a => { const o = inc.options.find(x => x.id === a.arg); if (o) ctx.api.openPanel({ prompt: t('wake.inc.ask.approve', { number: inc.number, title: o.title }) }); },
+      'wake.inc.choose': a => { const o = inc.options.find(x => x.id === a.arg); if (o) ctx.api.openPanel({ prompt: t(o.plan.route === 'manual' ? 'wake.inc.ask.manual' : 'wake.inc.ask.approve', { number: inc.number, title: o.title }) }); },
       'wake.inc.copyLink': () => ctx.api.action('wake.copy', { arg: { value: linksOf({}, inc).app } }),
       'wake.inc.report': () => ctx.api.navigate(`${incidentAddress(inc)}/report${stage}`, { presentation: 'detail' }),
       'wake.inc.exportChannel': () => ctx.api.action('wake.copy', { arg: { value: incidentReport(t, inc).channel } }),

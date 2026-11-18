@@ -50,3 +50,13 @@ test('no_fresh_lease_means_no_heartbeat_and_no_version', async () => {
   assert.equal(r.heartbeat, null); assert.equal(r.version, null); assert.equal(r.watch, null);
   assert.deepEqual(r.nodes.map(n => n.state), ['stale', 'missing', 'missing']);
 });
+
+test('a node whose agent lost a watch reports only the watches in sync and no pod counts from the stale one', async () => {
+  const path = '/apis/coordination.k8s.io/v1/namespaces/wake-system/leases?labelSelector=app.kubernetes.io%2Finstance%3Dwake-agent';
+  const synced = lease('a', 3, { 'wake-agent/watch-synced': 'Node', 'wake-agent/watch-synced-at': new Date(NOW - 600_000).toISOString(), 'wake-agent/pods': '', 'wake-agent/pods-not-ready': '' });
+  const r = await hub({ [path]: { items: [synced, lease('b', 2)] } }).read({ id: 'ctx' });
+  const a = r.nodes.find(n => n.node === 'a');
+  assert.deepEqual([a.watch, a.pods, a.podsNotReady, a.syncedAt], [['Node'], null, null, new Date(NOW - 600_000).toISOString()]);
+  assert.deepEqual(r.nodes.find(n => n.node === 'b').watch, ['Node', 'Pod'], 'an agent without the annotation keeps its declared watches');
+  assert.deepEqual(r.watch, ['Node'], 'a watch counts for the cluster only where every fresh agent has it in sync');
+});

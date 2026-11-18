@@ -8,7 +8,7 @@ const path = require('node:path');
 const { agentImageState } = require('./image-state.cjs');
 
 /* D-USR-2026-11-18-32·34: the bundled chart names the pushed, public multi-arch image (amd64, arm64) by its index digest, so it is installable */
-const PUBLISHED = 'ghcr.io/woonyong-choi/wake-agent@sha256:5c55e3101bff9502bd801b2d64fa5c4de4221dd6bf0ab71bc08fa5575aa7562b';
+const PUBLISHED = 'ghcr.io/woonyong-choi/wake-agent@sha256:2878f430d5049a0a9b29c7aafb7ec542b334f94862ac52c9a32658a86c2ebe2c';
 test('bundled_agent_chart_names_the_published_image_by_digest_and_is_installable', () => {
   assert.deepEqual(agentImageState(path.join(__dirname, 'wake-agent-only')), { published: true, image: PUBLISHED });
 });
@@ -38,5 +38,5 @@ test('the_main_process_refuses_the_agent_install_command_for_a_chart_without_a_p
   assert.equal(agentInstallGuard('agent.install', { chart: dir, cluster: 'fixture' }), null);
   assert.equal(agentInstallGuard('install.helm', {}), null);
   const services = fs.readFileSync(path.join(__dirname, '..', 'services.cjs'), 'utf8');
-  assert.match(services, /hooks\.commandGuard = require\('\.\/agent-install-charts\/image-state\.cjs'\)\.agentInstallGuard/, 'the desktop services set it as the terminal guard');
+  assert.match(services, /hooks\.commandGuard = \(id, args\) => \{\s*const refused = agentInstallGuard\(id, args\);/, 'the desktop services ask it first in the terminal guard');
 });

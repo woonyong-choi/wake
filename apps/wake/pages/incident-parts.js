@@ -52,13 +52,26 @@ const resultStatus = (t, code) => (recoveryTone(code) === 'ok'
   ? C.statusIcon.render({ kind: 'ok', label: recoveryWord(t, code) })
   : C.statusIcon.render({ kind: 'warn', text: recoveryWord(t, code) }));
 
-/** 조치 계획의 길(planFor route) -> 단계 코드: Draft PR → 병합 → 동기화 → 롤아웃, helm, 명령 */
-export const routeKeys = plan => (plan.route === 'pr' ? ['pr', 'merge', 'sync', 'rollout'] : plan.route === 'helm' ? ['helm', 'rollout'] : ['command']);
+/** 조치 계획의 길(planFor route) -> 단계 코드: Draft PR → 병합 → 동기화 → 롤아웃, helm, 명령, 직접 확인 */
+export const routeKeys = plan => (plan.route === 'pr' ? ['pr', 'merge', 'sync', 'rollout'] : plan.route === 'helm' ? [plan.id === 'rollback' ? 'helmRollback' : 'helm', 'rollout'] : plan.route === 'manual' ? ['manual'] : ['command']);
 export const routeOf = (t, plan) => routeKeys(plan).map(k => t(`wake.inc.route.${k}`));
+/** 승인한 조치의 실행 단계와 상태(receipts: 허브 workspace.execution.receipts). 영수증이 있는 단계만 done: Draft PR은 PR 만들기 결과(만들어짐 done, 대기 wait,
+ *  GitHub 연결 안 됨·실패 fail), 그 밖의 단계는 Wake가 받는 영수증이 없어 wait(사람이 밖에서 실행) */
+export const routeSteps = (plan, receipts = {}) => routeKeys(plan).map(key => {
+  const pr = receipts?.pr;
+  return { key, state: key !== 'pr' ? 'wait' : pr === 'created' || pr?.url ? 'done' : pr === 'github-unconnected' || pr === 'failed' || pr?.error ? 'fail' : 'wait' };
+});
 /* 바꾸는 값의 짧은 이름: 경로의 마지막 두 칸(limits.memory, pool.max) */
 const shortPath = path => String(path).replace(/^.*\]\.?/, '').split('.').filter(Boolean).slice(-2).join('.');
 /** 조치가 바꾸는 값 전부(승인 창과 같은 목록) */
-export const changeOf = (t, o) => { const v = o.plan.values; return v.length ? t('wake.inc.act.values', { values: v.map(x => `${shortPath(x.path)} ${x.before} → ${x.after}`).join(', '), n: v.length }) : o.plan.command ?? o.title; };
+/* 명령은 보이는 꼴(preview: 옛 템플릿의 비밀 값을 가림)로 */
+export const changeOf = (t, o) => { const v = o.plan.values; return v.length ? t('wake.inc.act.values', { values: v.map(x => `${shortPath(x.path)} ${x.before} → ${x.after}`).join(', '), n: v.length }) : o.plan.preview ?? o.plan.command ?? o.title; };
+/** 조치 후보 하나 -> 조치 비교(actionCompare) 한 줄. 직접 확인(manual)의 명령은 바꾸는 값이 아니라 확인 명령이라 그 이름으로 */
+export const compareOption = (t, x) => {
+  const g = gradeOf(t, x.grade);
+  return { id: x.id, title: x.title, kind: x.kind, grade: { ...g, label: x.basis ? t('wake.inc.act.basis', { g: x.basis }) : t('wake.inc.act.grade', { g: g.label }) }, change: changeOf(t, x), reach: x.reach, note: x.note,
+    route: routeOf(t, x.plan), ...(x.plan.route === 'manual' ? { labels: { change: t('wake.inc.act.check') } } : {}) };
+};
 
 /**
  * 근거 시계열 한 줄의 차트(chart-card props): 근거 상세와 보고서 그림이 같이 쓴다. 시각은 ms, 표본 [{ at, value|null }]. from·to가 없으면 표본의 처음과 끝.

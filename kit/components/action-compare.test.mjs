@@ -30,3 +30,9 @@ test('change, reach, note and route are a name and value list with the route joi
   assert.ok(m.includes(`${dt('note')}<dd>loses-a-fix</dd>`));
   assert.equal(m.split(dt('route')).length - 1, 1);
 });
+
+test('an option names its own rows where its value is not a change (a read-only check command)', () => {
+  const m = render({ options: [{ ...options[0], labels: { change: 'check-command' } }, options[1]], action: 'x.pick' }).s.split('class="acm-o"');
+  assert.match(m[1], /<dt>check-command<\/dt><dd>memory 256Mi → 384Mi<\/dd>/);
+  assert.ok(m[2].includes(`<dt>${t('compare.change')}</dt><dd>image v2 → v1</dd>`), 'the other options keep the shared word');
+});

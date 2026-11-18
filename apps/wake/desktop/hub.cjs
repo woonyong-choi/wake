@@ -33,9 +33,10 @@ function localize(value, t) {
 
 /**
  * deps: { userData, emit(event, payload), sources (reads/cluster.cjs, 화면 읽기 서비스와 같은 인스턴스), contexts() -> ids, secret(method, target) -> value|null,
- *         cliConnected(id) -> 사람이 연결한 구독 CLI인가(연결 파일의 aiCli 기록), version }
+ *         cliConnected(id) -> 사람이 연결한 구독 CLI인가(연결 파일의 aiCli 기록), version,
+ *         confirm(shown) -> Promise<bool> 승인 허용의 메인 프로세스 확인(approvals.cjs decide; 없으면 허용하지 않음) }
  */
-async function createHub({ userData, emit, sources, contexts, secret, cliConnected = () => false, version }) {
+async function createHub({ userData, emit, sources, contexts, secret, cliConnected = () => false, version, confirm = null }) {
   const { maskText } = await esm('data/mask.js');
   const store = createHubStore({ userData, maskText });
   store.prune();
@@ -49,7 +50,7 @@ async function createHub({ userData, emit, sources, contexts, secret, cliConnect
     interpreting.add(inc.id);
     try { const v = await runner.interpret(inc, localize(inc.observe, await dictionary())); if (v) hub.setInterpretation(inc.id, v); } finally { interpreting.delete(inc.id); }
   } });
-  const approvals = createApprovals({ store, hub, sources, audit, emit, github: () => secret('github', 'token') });
+  const approvals = createApprovals({ store, hub, sources, audit, emit, github: () => secret('github', 'token'), confirm });
 
   /* 화면 상태: 열린 페이지에 묻기 */
   const waits = new Map();
@@ -84,10 +85,12 @@ async function createHub({ userData, emit, sources, contexts, secret, cliConnect
 
   /* 감지: 화면이 읽은 클러스터와 열린 인시던트가 있는 클러스터를 30초마다(앱이 켜져 있는 동안), 보관 정리는 하루 한 번 */
   const watched = new Map();
-  const touch = id => watched.set(id, Date.now());
+  const watch = id => hub.scan(id).then(r => { if (r?.changed) emit('incident', { cluster: id }); }, () => null);
+  /* 화면이 그 클러스터를 처음 읽으면(또는 지켜보기가 끝난 뒤 다시 읽으면) 다음 주기를 기다리지 않고 바로 감지한다 */
+  const touch = id => { const fresh = !watched.has(id) || Date.now() - watched.get(id) >= WATCH_FOR; watched.set(id, Date.now()); if (fresh) void watch(id); };
   const tick = setInterval(() => {
     const open = new Set(hub.rows({ state: 'open' }).map(r => r.cluster));
-    for (const id of new Set([...watched.keys(), ...open])) if (open.has(id) || Date.now() - watched.get(id) < WATCH_FOR) hub.scan(id).then(r => { if (r?.changed) emit('incident', { cluster: id }); }, () => null);
+    for (const id of new Set([...watched.keys(), ...open])) if (open.has(id) || Date.now() - watched.get(id) < WATCH_FOR) void watch(id);
   }, SCAN_EVERY);
   tick.unref?.();
   const pruner = setInterval(() => store.prune(), DAY); pruner.unref?.();

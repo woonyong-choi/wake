@@ -180,3 +180,21 @@ test('agent_prep_reports_whether_the_bundled_chart_has_a_published_image', async
   assert.deepEqual(prep.image, require('./agent-install-charts/image-state.cjs').agentImageState(prep.chart));
   assert.equal(prep.image.published, true, 'the bundled chart names the published image by digest (D-USR-2026-11-18-34)');
 });
+
+/* review 8: the log IPC returned raw text, so a credential printed by a container reached the page as is. Log text crosses IPC only through the
+   shared disclosure policy (data/mask.js discloseText), on the window read and on the plain tail read */
+test('pod_logs_cross_ipc_through_the_disclosure_policy', async t => {
+  const opaque = 'Zq8RkT2mW9xLp4Vb7Nc3Hd6Jf1Gs5Ya0Ue';
+  const c = await cluster(t, {
+    '/api/v1/namespaces/payments/pods/api': { apiVersion: 'v1', kind: 'Pod', ...pod('api', 1) },
+    '/api/v1/namespaces/payments/pods/api/log': `2026-11-18T00:00:01.000000000Z connected with ${opaque}\n2026-11-18T00:00:02.000000000Z password=synthetic-pass ok\n`,
+  });
+  const now = Date.parse('2026-11-18T00:10:00Z');
+  const windowed = await c.services['kube.logs']({ id: 'lab', ns: 'payments', name: 'api', uid: UID, container: 'app', previous: false, tail: 500, window: { fromMs: now - 3600_000, toMs: now } }, FROM, page('wake://cluster/lab/logs'));
+  const tail = await c.services['kube.logs']({ id: 'lab', ns: 'payments', name: 'api', tail: 100 }, FROM, page('wake://cluster/lab/logs'));
+  for (const text of [windowed.text, typeof tail === 'string' ? tail : tail?.text]) {
+    assert.equal(typeof text, 'string');
+    assert.doesNotMatch(text, new RegExp(opaque + '|synthetic-pass'));
+    assert.match(text, /connected with ••••/);
+  }
+});

@@ -123,7 +123,9 @@ function createToolLayer({ sources, hub, store, screen, approvals, report }) {
           lines = all.map((l, i) => { const sp = l.indexOf(' '); return { n: i + 1, at: Date.parse(l.slice(0, sp)) || null, text: l.slice(sp + 1) }; })
             .filter(l => l.at == null || (l.at >= w.from && l.at <= w.to));
         }
-        lines = lines.map(l => ({ ...l, level: /\b(error|fatal|panic)\b/i.test(l.text) ? 'ERROR' : /\bwarn/i.test(l.text) ? 'WARN' : 'INFO' }));
+        /* 로그 글은 공유 공개 정책(data/mask.js discloseText)을 지나 모델 도구·근거로: 이름표 없는 불투명 자격도 가린다 */
+        const { discloseText } = await esm('data/mask.js');
+        lines = lines.map(l => ({ ...l, text: discloseText(l.text).text, level: /\b(error|fatal|panic)\b/i.test(l.text) ? 'ERROR' : /\bwarn/i.test(l.text) ? 'WARN' : 'INFO' }));
         const ex = a.query ? logExcerpt(lines, { key: a.query, around: a.around ?? 2 }) : null;
         return { lines: ex ? ex.rows : lines.slice(-500), hits: ex?.hits ?? [], total: lines.length, truncated: truncated || (!ex && lines.length > 500) };
       } },
@@ -212,7 +214,7 @@ function createToolLayer({ sources, hub, store, screen, approvals, report }) {
       async run(a) { return items().dashboards(a.cluster, a); } },
     propose_action: { input: obj({ incident: str('incident id'), option: str('an action candidate id of the incident (raise-memory, rollback)'),
       target: obj({ cluster: CLUSTER, namespace: str('namespace'), kind: str('kind'), name: str('name') }, ['cluster', 'kind', 'name']),
-      change: obj({ title: str('title', { maxLength: 200 }), values: { type: 'array', items: obj({ path: str('dotted path'), before: str('value now'), after: { type: 'string' } }, ['path', 'after']) } }, ['title']) }, ['target']),
+      change: obj({ title: str('title', { maxLength: 200 }), values: { type: 'array', items: obj({ path: str('dotted path'), before: str('value now (must be the live value)'), after: { type: 'string' } }, ['path', 'before', 'after']) } }, ['title']) }, ['target']),
       description: 'Propose a change. It only creates a request waiting for a person to approve it in the Wake desktop; nothing runs.', source: 'wake', proposes: true,
       scopeOf: a => ({ cluster: a.target.cluster, namespace: a.target.namespace, kind: a.target.kind }),
       async run(a, caller) { return approvals.propose(a, caller); } },

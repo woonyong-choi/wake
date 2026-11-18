@@ -87,12 +87,12 @@ test('exec_context_shows_its_command_until_the_person_consents_from_the_shell_an
   const { userData } = home(t, baseDoc({ exec: { apiVersion: 'client.authentication.k8s.io/v1beta1', command, args: ['token', '--cluster', 'lab'] } }));
   const services = create({ app: { isPackaged: true }, emit() {}, userData });
   const row = () => services['kube.read']().contexts.find(c => c.id === 'lab');
-  assert.deepEqual(row().execConsent, { state: 'needed', command, args: ['token', '--cluster', 'lab'] });
+  assert.deepEqual(row().execConsent, { state: 'needed', command, args: ['token', '--cluster', 'lab'], env: [] });
   const probe = await services['kube.probe']({ id: 'lab' });
   assert.equal(probe.state, 'needs_consent');
   assert.equal((await services['kube.execConsent']({ id: 'lab', allow: true }, { shell: false, mainFrame: true })).error, 'not_allowed', 'a page cannot consent');
   assert.equal((await services['kube.execConsent']({ id: 'lab' }, { shell: true, mainFrame: true })).error, 'invalid_request');
-  assert.deepEqual(await services['kube.execConsent']({ id: 'lab', allow: true }, { shell: true, mainFrame: true }), { state: 'granted', command, args: ['token', '--cluster', 'lab'] });
+  assert.deepEqual(await services['kube.execConsent']({ id: 'lab', allow: true }, { shell: true, mainFrame: true }), { state: 'granted', command, args: ['token', '--cluster', 'lab'], env: [] });
   assert.equal(row().execConsent.state, 'granted');
   const store = fs.readdirSync(userData).find(name => name.startsWith('exec-consent'));
   assert.ok(store);
@@ -126,4 +126,141 @@ test('terminal_kubeconfig_hands_a_keychain_token_through_an_exec_credential_help
   /* 다른 표(위조한 ticket)로는 아무것도 받지 못한다 */
   const forged = [...user.exec.args.slice(0, -1), 'forged-ticket'];
   assert.throws(() => execFileSync(user.exec.command, forged, { env: { ...env, PATH: process.env.PATH }, stdio: 'pipe' }));
+});
+
+/* review 5: approval.decide from any in-app page was recorded as the local person's approval. The desktop service allows only after the
+   main process confirmation (kit confirm: an OS dialog the page cannot answer) shown for that approval id and plan hash */
+test('approval_decide_allows_only_after_the_main_process_confirmation_for_that_approval_and_plan', async t => {
+  const { userData } = home(t, baseDoc());
+  const { createHubStore } = require('./hub-store.cjs'), { createApprovals } = require('./approvals.cjs');
+  const base = 'spec.template.spec.containers[1]';
+  const plan = { id: 'raise-memory', route: 'command', target: { kind: 'Deployment', namespace: 'shop', name: 'api' }, guards: [{ path: `${base}.name`, value: 'app' }],
+    values: [{ path: `${base}.resources.limits.memory`, before: '64Mi', after: '128Mi' }, { path: 'spec.replicas', before: '1', after: '2' }], command: 'kubectl patch' };
+  const incidents = { get: () => ({ cluster: 'lab', target: plan.target }), workspace: async () => ({ options: [{ id: 'raise-memory', title: 'raise memory', plan }] }), choose() {} };
+  const proposer = createApprovals({ store: createHubStore({ userData, maskText: s => ({ text: String(s), n: 0 }) }), hub: incidents, sources: {}, audit() {} });
+  const { approval } = await proposer.propose({ incident: 'i1', option: 'raise-memory', target: { cluster: 'lab', namespace: 'shop', kind: 'Deployment', name: 'api' } },
+    { transport: 'mcp', requester: { kind: 'external', name: 'cli' } });
+  const asked = [];
+  let answer = false;
+  const services = create({ app: { isPackaged: true }, emit() {}, userData, confirm: async shown => { asked.push(shown); return answer; } });
+  await assert.rejects(services['approval.decide']({ id: approval, choice: 'allow' }), error => error.kind === 'not_confirmed', 'a page alone cannot allow');
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0].message, 'wake.approval.confirm.message');
+  assert.equal(asked[0].action, 'wake.approval.confirm.allow');
+  assert.equal(asked[0].vars.id, approval);
+  assert.equal(asked[0].vars.cluster, 'lab');
+  assert.deepEqual(asked[0].vars.route, { $t: 'wake.inc.route.command' }, 'the route is words, not the raw route id');
+  assert.deepEqual(asked[0].vars.changes, [{ $t: 'wake.approval.confirm.containerChange', vars: { field: 'limits.memory', container: 'app', before: '64Mi', after: '128Mi' } },
+    { $t: 'wake.approval.confirm.change', vars: { path: 'spec.replicas', before: '1', after: '2' } }]);
+  assert.doesNotMatch(JSON.stringify(asked[0]), /[0-9a-f]{64}|hash/, 'the plan hash is bound inside, not shown');
+  const ko = (await import('../locale/ko.js')).default;
+  assert.equal(ko['wake.approval.confirm.containerChange'].replace(/\{(\w+)\}/g, (_, k) => asked[0].vars.changes[0].vars[k]), 'limits.memory (컨테이너 app): 64Mi -> 128Mi');
+  answer = true;
+  assert.equal((await services['approval.decide']({ id: approval, choice: 'allow' })).state, 'approved');
+});
+
+/* review 6: the shell document chose the chart, the cluster and the kubeconfig of the agent install (cluster-wide RBAC). The main process now
+   resolves them itself: only a registered context, only the bundled chart or one the person picked in the main-process folder dialog, and the
+   KUBECONFIG of the files Wake reads, whatever the page sent */
+test('the_agent_install_runs_only_for_a_registered_context_and_an_approved_chart_with_the_kubeconfig_the_main_process_reads', async t => {
+  const { userData, file } = home(t, baseDoc({ token: 'synthetic' }));
+  const hooks = {}, picked = fs.mkdtempSync(path.join(os.tmpdir(), 'wake-picked-chart-'));
+  t.after(() => fs.rmSync(picked, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(picked, 'values.yaml'), JSON.stringify({ image: { repository: 'ghcr.io/example/wake-agent', digest: 'sha256:' + 'b'.repeat(64) } }));
+  const services = create({ app: { isPackaged: true }, emit() {}, userData, hooks, pickFolder: async () => ({ canceled: false, filePaths: [picked] }), helmPath: () => '/fixture/bin/helm' });
+  const bundled = services['agent.prep']({}).chart, prepared = answer => { assert.equal(typeof answer?.env?.KUBECONFIG, 'string', JSON.stringify(answer)); answer.cleanup(); return true; };
+  assert.ok(prepared(hooks.commandGuard('agent.install', { chart: bundled, cluster: 'lab' })));
+  assert.equal(hooks.commandGuard('agent.install', { chart: bundled, cluster: 'not-registered' }), 'COMMAND_CONTEXT_UNREGISTERED');
+  assert.equal(hooks.commandGuard('agent.install', { chart: picked, cluster: 'lab' }), 'AGENT_CHART_UNAPPROVED', 'a published chart the person never picked');
+  assert.deepEqual(await services['agent.pickChart'](), { path: picked });
+  assert.ok(prepared(hooks.commandGuard('agent.install', { chart: picked, cluster: 'lab' })));
+  assert.equal(hooks.commandGuard('agent.install', { chart: '/nonexistent/chart', cluster: 'lab' }), 'AGENT_IMAGE_UNPUBLISHED');
+  assert.equal(hooks.commandGuard('perm.grant.namespace', { name: 'wake-read-x', resource: 'pods', namespace: 'shop', context: 'elsewhere', binding: 'wake-read-x', user: 'u' }), 'COMMAND_CONTEXT_UNREGISTERED');
+  assert.deepEqual(hooks.commandGuard('perm.grant.namespace', { name: 'wake-read-x', resource: 'pods', namespace: 'shop', context: 'lab', binding: 'wake-read-x', user: 'u' }), { env: { KUBECONFIG: file } });
+  assert.equal(hooks.commandGuard('install.helm', {}), null, 'a command that changes only this computer passes');
+});
+
+/* review 7 and 8: a consent survived an edited exec.env, and inline credentials in exec arguments reached the page (kube.read, the probe's
+   needs_consent, the consent answer) and the consent file. The page sees hidden argument values and environment names only; an edited
+   environment asks again */
+test('exec_consent_rows_hide_inline_credentials_and_an_edited_kubeconfig_environment_asks_again', async t => {
+  const command = path.join(os.tmpdir(), 'wake-consent-env-' + process.pid);
+  fs.writeFileSync(command, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+  t.after(() => fs.rmSync(command, { force: true }));
+  const exec = env => ({ exec: { apiVersion: 'client.authentication.k8s.io/v1beta1', command, args: ['token', '--token', 'synthetic-inline-arg'], env } });
+  const { userData, file } = home(t, baseDoc(exec([{ name: 'AUTH_MODE', value: 'synthetic-env-one' }])));
+  const services = create({ app: { isPackaged: true }, emit() {}, userData });
+  const row = () => services['kube.read']().contexts.find(c => c.id === 'lab');
+  assert.deepEqual(row().execConsent, { state: 'needed', command, args: ['token', '--token', '••••'], env: ['AUTH_MODE'] });
+  const probe = await services['kube.probe']({ id: 'lab' });
+  assert.equal(probe.state, 'needs_consent');
+  const granted = await services['kube.execConsent']({ id: 'lab', allow: true }, { shell: true, mainFrame: true });
+  const shown = JSON.stringify([row(), probe, granted, fs.readFileSync(path.join(userData, 'exec-consent.json'), 'utf8')]);
+  assert.doesNotMatch(shown, /synthetic-inline-arg|synthetic-env-one/, 'no credential or environment value reaches a page or the consent file');
+  assert.equal(row().execConsent.state, 'granted');
+  fs.writeFileSync(file, yaml.dump(baseDoc(exec([{ name: 'AUTH_MODE', value: 'synthetic-env-two' }]))));
+  assert.equal(row().execConsent.state, 'needed', 'the same command and arguments with another environment ask again');
+  assert.equal((await services['kube.probe']({ id: 'lab' })).state, 'needs_consent');
+});
+
+/* recheck 2: the confirmation named paths while Helm read them later: an edited kubeconfig could point the same context at another server and a
+   picked chart could change after the dialog. The main process now runs Helm on what it showed: a snapshot of the chart (content digest), a
+   kubeconfig holding only the confirmed context, cluster and user (0600, private folder, removed after the run) and Helm by its absolute path */
+test('the_agent_install_runs_helm_on_a_chart_snapshot_and_a_one_context_kubeconfig_the_main_process_wrote', async t => {
+  const doc = baseDoc({ token: 'synthetic-token' });
+  doc.contexts.push({ name: 'other', context: { cluster: 'other', user: 'other-user' } });
+  doc.clusters.push({ name: 'other', cluster: { server: 'https://other.invalid' } }); doc.users.push({ name: 'other-user', user: { token: 'other-token' } });
+  const { userData, file } = home(t, doc);
+  const hooks = {}, picked = fs.mkdtempSync(path.join(os.tmpdir(), 'wake-picked-chart-'));
+  t.after(() => fs.rmSync(picked, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(picked, 'Chart.yaml'), 'name: wake-agent\n');
+  fs.writeFileSync(path.join(picked, 'values.yaml'), JSON.stringify({ image: { repository: 'ghcr.io/example/wake-agent', digest: 'sha256:' + 'b'.repeat(64) } }));
+  const services = create({ app: { isPackaged: true }, emit() {}, userData, hooks, pickFolder: async () => ({ canceled: false, filePaths: [picked] }), helmPath: () => '/fixture/bin/helm' });
+  await services['agent.pickChart']();
+  const answer = hooks.commandGuard('agent.install', { chart: picked, cluster: 'lab' });
+  const config = answer.env.KUBECONFIG, snapshot = answer.args.chart;
+  assert.equal(answer.program, '/fixture/bin/helm', 'Helm by its resolved absolute path');
+  assert.notEqual(snapshot, picked);
+  assert.equal(fs.statSync(config).mode & 0o777, 0o600);
+  assert.equal(fs.statSync(path.dirname(config)).mode & 0o777, 0o700);
+  const written = yaml.load(fs.readFileSync(config, 'utf8'));
+  assert.deepEqual(written.contexts.map(c => c.name), ['lab'], 'only the confirmed context');
+  assert.deepEqual(written.clusters.map(c => c.cluster.server), ['https://lab.invalid']);
+  assert.equal(written['current-context'], 'lab');
+  assert.doesNotMatch(JSON.stringify(written), /other/);
+  assert.match(JSON.stringify(answer.detail), /https:\/\/lab\.invalid/, 'the dialog names the server');
+  assert.match(JSON.stringify(answer.detail), /[0-9a-f]{64}/, 'and the chart content digest');
+  /* the originals change while the dialog is open: what runs is what was shown */
+  fs.writeFileSync(path.join(picked, 'values.yaml'), JSON.stringify({ image: { repository: 'ghcr.io/attacker/agent', digest: 'sha256:' + 'c'.repeat(64) } }));
+  doc.clusters[0].cluster.server = 'https://attacker.invalid'; fs.writeFileSync(file, yaml.dump(doc));
+  assert.match(fs.readFileSync(path.join(snapshot, 'values.yaml'), 'utf8'), /ghcr\.io\/example/);
+  assert.match(fs.readFileSync(config, 'utf8'), /lab\.invalid/);
+  answer.cleanup();
+  assert.equal(fs.existsSync(config), false); assert.equal(fs.existsSync(snapshot), false);
+  /* a link inside a chart is refused rather than followed */
+  fs.symlinkSync('/etc/hosts', path.join(picked, 'linked.yaml'));
+  fs.writeFileSync(path.join(picked, 'values.yaml'), JSON.stringify({ image: { repository: 'ghcr.io/example/wake-agent', digest: 'sha256:' + 'b'.repeat(64) } }));
+  assert.equal(hooks.commandGuard('agent.install', { chart: picked, cluster: 'lab' }), 'AGENT_CHART_UNAPPROVED');
+});
+
+/* round 3 finding 1: the snapshot kubeconfig passed the exec plugin through to Helm, outside Wake's executable consent, and Helm ran with the
+   login shell's HELM_* and KUBE* overrides. The install now resolves an exec user through the consented plugin into a static token, refuses
+   without consent, and runs Helm with an allowlisted environment */
+test('the_agent_install_resolves_exec_credentials_through_consent_and_runs_helm_isolated', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wake-install-exec-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const command = path.join(dir, 'auth-helper');
+  fs.writeFileSync(command, '#!/bin/sh\necho \'{"apiVersion":"client.authentication.k8s.io/v1beta1","kind":"ExecCredential","status":{"token":"synthetic-exec-token"}}\'\n', { mode: 0o755 });
+  const { userData } = home(t, baseDoc({ exec: { apiVersion: 'client.authentication.k8s.io/v1beta1', command, args: ['token'] } }));
+  const hooks = {};
+  const services = create({ app: { isPackaged: true }, emit() {}, userData, hooks, helmPath: () => '/fixture/bin/helm' });
+  const bundled = services['agent.prep']({}).chart;
+  assert.equal(hooks.commandGuard('agent.install', { chart: bundled, cluster: 'lab' }), 'EXEC_CONSENT_REQUIRED');
+  await services['kube.execConsent']({ id: 'lab', allow: true }, { shell: true, mainFrame: true });
+  const answer = hooks.commandGuard('agent.install', { chart: bundled, cluster: 'lab' });
+  assert.equal(answer.isolate, true, 'Helm sees only an allowlisted environment');
+  const written = yaml.load(fs.readFileSync(answer.env.KUBECONFIG, 'utf8'));
+  assert.equal(written.users[0].user.token, 'synthetic-exec-token');
+  assert.equal(written.users[0].user.exec, undefined, 'no exec plugin reaches Helm');
+  answer.cleanup();
 });

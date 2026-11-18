@@ -1,7 +1,7 @@
 /* 소유 관계와 조치 계획: node --test apps/wake/data/ownership.test.mjs */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ownerOf, planFor } from './ownership.js';
+import { ownerOf, planFor, rollbackChange } from './ownership.js';
 
 const deployment = (name, ns, meta = {}) => ({ apiVersion: 'apps/v1', kind: 'Deployment', metadata: { name, namespace: ns, uid: `uid-${name}`, ...meta }, spec: { replicas: 3 } });
 const application = (name, { auto = true, resources = [], dest = { name: 'prod-a', namespace: 'payments' }, enabled } = {}) => ({
@@ -82,21 +82,79 @@ test('planFor: an auto-synced Argo CD target gets a Draft PR, never a cluster co
 
 test('planFor: manual Argo CD, Helm and unowned resources', () => {
   const res = deployment('payments', 'payments');
-  const manual = planFor({ resource: res, change: CHANGE, owner: { kind: 'argocd', app: 'payments', auto: false } });
+  const manual = planFor({ resource: res, change: CHANGE, owner: { kind: 'argocd', app: 'payments', auto: false }, context: 'prod-a' });
   assert.equal(manual.route, 'command');
   assert.deepEqual(manual.checks, ['gitops-manual-drift']);
-  const helm = planFor({ resource: res, change: { id: 'mem', values: [{ path: 'resources.limits.memory', before: '512Mi', after: '768Mi' }] }, owner: { kind: 'helm', release: 'payments', namespace: 'payments', chart: 'acme/payments' } });
+  const helm = planFor({ resource: res, change: { id: 'mem', values: [{ path: 'resources.limits.memory', before: '512Mi', after: '768Mi' }] }, owner: { kind: 'helm', release: 'payments', namespace: 'payments', chart: 'acme/payments' }, context: 'prod-a' });
   assert.equal(helm.route, 'helm');
-  assert.equal(helm.command, "helm upgrade payments acme/payments -n payments --reuse-values --set 'resources.limits.memory=768Mi'");
+  assert.equal(helm.command, "helm upgrade payments acme/payments -n payments --reuse-values --set 'resources.limits.memory=768Mi' --kube-context 'prod-a'");
   const noChart = planFor({ resource: res, change: CHANGE, owner: { kind: 'helm', release: 'payments', namespace: 'payments' } });
   assert.equal(noChart.command, null);
   assert.ok(noChart.checks.includes('helm-chart-unknown'));
-  const plain = planFor({ resource: res, change: CHANGE, owner: null });
+  const plain = planFor({ resource: res, change: CHANGE, owner: null, context: 'prod-a' });
   assert.equal(plain.route, 'command');
   assert.deepEqual(plain.checks, ['not-gitops']);
   assert.ok(plain.command.startsWith('kubectl patch deployment/payments -n payments --type=json -p '));
-  const ops = JSON.parse(/-p '(.*)'$/.exec(plain.command)[1]);
-  assert.deepEqual(ops, [{ op: 'replace', path: '/spec/template/spec/containers/0/env/0/value', value: '-Xmx384m' }, { op: 'replace', path: '/spec/template/spec/containers/0/resources/requests/cpu', value: '300m' }]);
-  const restart = planFor({ resource: res, change: { id: 'restart', values: [], command: 'kubectl rollout restart deployment/payments -n payments' }, owner: null });
-  assert.equal(restart.command, 'kubectl rollout restart deployment/payments -n payments');
+  const ops = JSON.parse(/-p '(.*)' --context/.exec(plain.command)[1]);
+  assert.deepEqual(ops, [{ op: 'test', path: '/metadata/uid', value: 'uid-payments' },
+    { op: 'test', path: '/spec/template/spec/containers/0/env/0/value', value: '-Xmx480m' }, { op: 'test', path: '/spec/template/spec/containers/0/resources/requests/cpu', value: '420m' },
+    { op: 'replace', path: '/spec/template/spec/containers/0/env/0/value', value: '-Xmx384m' }, { op: 'replace', path: '/spec/template/spec/containers/0/resources/requests/cpu', value: '300m' }], 'the patch fails closed when the object, or a value it changes, moved since the plan');
+  const restart = planFor({ resource: res, change: { id: 'restart', values: [], command: 'kubectl rollout restart deployment/payments -n payments' }, owner: null, context: 'prod-a' });
+  assert.equal(restart.command, "kubectl rollout restart deployment/payments -n payments --context 'prod-a'");
+  const unbound = planFor({ resource: res, change: CHANGE, owner: null });
+  assert.deepEqual([unbound.command, unbound.checks.includes('context-unbound')], [null, true], 'a write without the context it was made for has no command');
+});
+
+test('planFor: a write names the context it was made for and guards the container it changes', () => {
+  const res = deployment('payments', 'payments', { generation: 7 });
+  const change = { id: 'mem', guards: [{ path: 'spec.template.spec.containers[1].name', value: 'app' }], values: [{ path: 'spec.template.spec.containers[1].resources.limits.memory', before: '64Mi', after: '128Mi' }] };
+  const plain = planFor({ resource: res, change, owner: null, context: 'prod-a' });
+  assert.ok(plain.command.endsWith(" --context 'prod-a'"), plain.command);
+  const ops = JSON.parse(/-p '(.*)' --context/.exec(plain.command)[1]);
+  assert.deepEqual(ops.slice(0, 4).map(o => [o.op, o.path, o.value]), [['test', '/metadata/uid', 'uid-payments'], ['test', '/metadata/generation', 7], ['test', '/spec/template/spec/containers/1/name', 'app'], ['test', '/spec/template/spec/containers/1/resources/limits/memory', '64Mi']],
+    'a newer rollout of the same object (a new generation) fails the patch');
+  assert.deepEqual(plain.guards, [{ path: 'spec.template.spec.containers[1].name', value: 'app' }], 'the plan shows what it guards');
+  const cordon = planFor({ resource: { apiVersion: 'v1', kind: 'Node', metadata: { name: 'w1', uid: 'n1' } }, change: { id: 'cordon', values: [{ path: 'spec.unschedulable', after: true, op: 'add' }] }, owner: null, context: 'prod-a' });
+  assert.deepEqual(JSON.parse(/-p '(.*)' --context/.exec(cordon.command)[1]), [{ op: 'test', path: '/metadata/uid', value: 'n1' }, { op: 'add', path: '/spec/unschedulable', value: true }], 'a cordon names the Node it was planned for');
+  const helm = planFor({ resource: res, change, owner: { kind: 'helm', release: 'payments', namespace: 'payments', chart: 'acme/payments' }, context: 'prod-a' });
+  assert.ok(helm.command.endsWith(" --kube-context 'prod-a'"));
+});
+
+test('planFor: a manual step is a check the person runs outside Wake, never a PR or a cluster write, whoever owns the resource', () => {
+  const res = deployment('payments', 'payments'), argo = { kind: 'argocd', app: 'payments', auto: true, repo: 'r', path: 'p' };
+  for (const owner of [argo, { kind: 'helm', release: 'payments', namespace: 'payments', chart: 'acme/payments' }, null]) {
+    const p = planFor({ resource: res, change: { id: 'check', manual: true, values: [{ path: 'x', before: 1, after: 2 }], command: 'kubectl describe pod api-1 -n payments' }, owner });
+    assert.equal(p.route, 'manual');
+    assert.equal(p.command, 'kubectl describe pod api-1 -n payments');
+    assert.deepEqual(p.values, [], 'a manual step changes no value');
+    assert.deepEqual(p.checks, ['manual-step']);
+  }
+});
+
+test('rollbackChange: replaces the template with the earlier ReplicaSet one, only on the same object, generation and revision', () => {
+  const dep = deployment('payments', 'payments', { generation: 9, annotations: { 'deployment.kubernetes.io/revision': '13' } });
+  const earlier = { kind: 'ReplicaSet', metadata: { name: 'payments-6f7', annotations: { 'deployment.kubernetes.io/revision': '12' } },
+    spec: { template: { metadata: { labels: { app: 'payments', 'pod-template-hash': '6f7' } }, spec: { containers: [{ name: 'app', image: 'payments:1.0' }] } } } };
+  const change = rollbackChange({ deployment: dep, to: earlier, title: 'rollback' });
+  assert.equal(change.revision, 12);
+  const plan = planFor({ resource: dep, change, owner: null, context: 'prod-a' });
+  assert.equal(plan.route, 'command');
+  const ops = JSON.parse(/-p '(.*)' --context 'prod-a'$/.exec(plan.command)[1]);
+  assert.deepEqual(ops, [{ op: 'test', path: '/metadata/uid', value: 'uid-payments' }, { op: 'test', path: '/metadata/generation', value: 9 },
+    { op: 'test', path: '/metadata/annotations/deployment.kubernetes.io~1revision', value: '13' },
+    { op: 'replace', path: '/spec/template', value: { metadata: { labels: { app: 'payments' } }, spec: { containers: [{ name: 'app', image: 'payments:1.0' }] } } }]);
+  assert.equal(earlier.spec.template.metadata.labels['pod-template-hash'], '6f7', 'the ReplicaSet read is not changed');
+  const pr = planFor({ resource: dep, change, owner: { kind: 'argocd', app: 'payments', auto: true, repo: 'r', path: 'p' }, context: 'prod-a' });
+  assert.deepEqual([pr.route, pr.checks.includes('git-revert'), pr.command], ['pr', true, null], 'a synced Application still reverts through a Draft PR');
+});
+
+test('rollbackChange on a Helm release: helm rollback to the revision before the current one, or to the previous release Helm resolves when the history is not read', () => {
+  const dep = deployment('payments', 'payments', { generation: 4, annotations: { 'deployment.kubernetes.io/revision': '2' } });
+  const earlier = { kind: 'ReplicaSet', metadata: { name: 'payments-1', annotations: { 'deployment.kubernetes.io/revision': '1' } }, spec: { template: { metadata: { labels: {} }, spec: { containers: [] } } } };
+  const change = rollbackChange({ deployment: dep, to: earlier });
+  const known = planFor({ resource: dep, change, owner: { kind: 'helm', release: 'pay', namespace: 'payments', chart: 'acme/pay', revision: 3, history: [{ revision: 1 }, { revision: 2 }, { revision: 3 }] }, context: 'prod-a' });
+  assert.deepEqual([known.route, known.command], ['helm', "helm rollback 'pay' 2 -n 'payments' --kube-context 'prod-a' --wait"]);
+  /* Wake does not read Helm release Secrets (RULE-SECRET): without the history Helm itself picks the previous release at run time */
+  const unknown = planFor({ resource: dep, change, owner: { kind: 'helm', release: 'pay', namespace: 'payments' }, context: 'prod-a' });
+  assert.deepEqual([unknown.route, unknown.command, unknown.checks.includes('helm-previous-release'), unknown.revision], ['helm', "helm rollback 'pay' -n 'payments' --kube-context 'prod-a' --wait", true, null]);
 });

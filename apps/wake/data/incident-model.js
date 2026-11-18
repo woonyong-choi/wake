@@ -12,7 +12,7 @@ const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 /** the availability objective a 5xx burn rate is read against when the service declares none (percent) */
 export const SLO_DEFAULT = 99.9;
 
-/** the recovery check defaults (ms): one collection every 30 s, 5 minutes of continuous health, a 10-minute deadline */
+/** the recovery check defaults (ms): one collection every 30 s, 5 minutes of continuous health, 10 minutes blind in a row end it without a verdict */
 export const VERIFY_DEFAULT = Object.freeze({ cadence: 30_000, need: 300_000, max: 600_000 });
 
 /** how fast an error ratio (percent) spends the error budget: 3.1% at 99.9% is 31. Null for a missing ratio */
@@ -189,23 +189,24 @@ export function causeStatus(chain, rule) {
  * The recovery check's verdict from its collection windows.
  *  verifyFrom, now: ms; cadence, need, max: ms (VERIFY_DEFAULT); windows: one code per window seen so far, oldest first:
  *  'ok' (every source answered and every condition held), 'miss' (a source did not answer: never ok), 'bad' (a condition failed).
- * A window the check could not see moves the deadline one window later, up to twice the limit; missing windows worth the whole limit end the
- * check without a verdict ('inconclusive'). Pass needs `need` of seen time, at least max(2, need/cadence + 1) ok windows and a seen last window.
- * Returns { state: 'pending' | 'pass' | 'fail' | 'inconclusive', stable, left, deadline, failAt, windows (padded with 'none' to the deadline) }.
+ * RULE-RECOVERY: health counts only as one unbroken run of ok windows ending at the last one; a miss restarts the run (health before and after a
+ * blind spell never adds up). Pass needs that run to hold at least max(2, need/cadence + 1) windows (11: 0 to 300 s) and, when the windows carry their
+ * read times (times, one per window), to span `need` of real time between its first and last read (windows read faster than the cadence do not pass
+ * early). Only misses worth the whole limit in a row end the check without a verdict ('inconclusive'); scattered misses keep it pending.
+ * Returns { state: 'pending' | 'pass' | 'fail' | 'inconclusive', stable, left, failAt, windows (the latest, padded with 'none' to the limit) }.
  */
-export function verifyVerdict({ verifyFrom, now, cadence = VERIFY_DEFAULT.cadence, need = VERIFY_DEFAULT.need, max = VERIFY_DEFAULT.max, windows = [] }) {
-  if (verifyFrom == null || now < verifyFrom) return { state: 'pending', stable: 0, left: need, deadline: null, failAt: null, windows: [] };
-  const misses = windows.filter(w => w === 'miss').length;
-  const len = Math.min(max / cadence + misses, 2 * max / cadence), deadline = verifyFrom + len * cadence;
-  const seen = windows.slice(0, len), padded = [...seen, ...Array(Math.max(0, len - seen.length)).fill('none')];
-  const stable = Math.max(0, now - verifyFrom - misses * cadence), left = Math.max(0, need - stable);
-  const bad = seen.indexOf('bad');
-  const out = (state, failAt = null) => ({ state, stable, left, deadline, failAt, windows: padded });
+export function verifyVerdict({ verifyFrom, now, cadence = VERIFY_DEFAULT.cadence, need = VERIFY_DEFAULT.need, max = VERIFY_DEFAULT.max, windows = [], times = null }) {
+  if (verifyFrom == null || now < verifyFrom) return { state: 'pending', stable: 0, left: need, failAt: null, windows: [] };
+  const run = code => { let n = 0; for (let i = windows.length - 1; i >= 0 && windows[i] === code; i--) n++; return n; };
+  const healthy = run('ok'), blind = run('miss'), len = max / cadence;
+  const shown = windows.slice(-len), padded = [...shown, ...Array(Math.max(0, len - shown.length)).fill('none')];
+  const timed = Array.isArray(times) && times.length === windows.length;
+  const stable = healthy === 0 ? 0 : timed ? times.at(-1) - times[times.length - healthy] : (healthy - 1) * cadence, left = Math.max(0, need - stable);
+  const bad = windows.indexOf('bad');
+  const out = (state, failAt = null) => ({ state, stable, left, failAt, windows: padded });
   if (bad >= 0) return out('fail', verifyFrom + bad * cadence);
-  if (misses * cadence >= max) return out('inconclusive');
-  const ok = seen.filter(w => w === 'ok').length, minWindows = Math.max(2, Math.ceil(need / cadence) + 1);
-  if (seen.at(-1) !== 'miss' && stable >= need && ok >= minWindows) return out('pass');
-  if (now >= deadline) return out('inconclusive');
+  if (blind * cadence >= max) return out('inconclusive');
+  if (healthy >= Math.max(2, Math.ceil(need / cadence) + 1) && stable >= need) return out('pass');
   return out('pending');
 }
 

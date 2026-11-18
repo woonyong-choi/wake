@@ -34,7 +34,7 @@ bootPage(config, ctx => {
     try {
       next = await data.get('alerts', { cluster: id });
       if (!current()) return;
-      nextIncidents = (await data.get('incidents').catch(() => [])).filter(i => i.cluster === id);
+      nextIncidents = await data.get('incidents', { cluster: id }).catch(() => []);
     } catch (e) { error = e; }
     if (!current()) return;
     await sources.read(current);

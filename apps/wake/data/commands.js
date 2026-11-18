@@ -1,7 +1,7 @@
 /*
  * 터미널이 사람을 위해 실행하는 명령: 앱이 선언한 명령 id와 인자만 보낸다(데스크톱이 commands.json의 같은 표로 다시 검사하고 만든다).
  * 화면은 복사·표시용 명령 글(line)을 그대로 쓰고, 실행할 때 그 글을 선언한 명령 하나로 되읽는다. 선언에 없는 글은 실행하지 않는다.
- *   specOf(line) -> { id, args, line, confirm } | null  (confirm: 데스크톱이 터미널에서 Enter를 기다린 뒤 실행하는 명령)
+ *   specOf(line) -> { id, args, line, confirm } | null  (confirm: 데스크톱 메인 프로세스의 OS 확인 창에 사람이 답한 뒤 실행하는 명령)
  */
 import COMMANDS from '../commands.json' with { type: 'json' };
 

@@ -62,9 +62,9 @@ D는 직접 요구 967개와 보조 문맥 85개, 총 1052개다(D:3). 질문이
 ### SRE-Q-03 인시던트 감지: 무엇을 한 장애로 묶었는가
 
 - 목표: 입력: 같은 Deployment의 OOM·BackOff와 다른 owner의 실패를 입력한다 → 기대: 신호의 종류, reason, 심각도, 대상 소유 관계, 최초·마지막 시각, 반복 수를 표시한다. 동일 Event UID 재수신은 발생 횟수를 더하지 않는다. OOM·CrashLoop·알림이 같은 소유 워크로드면 한 사건, 다른 소유자면 별도 사건으로 추적한다. 감지 실패와 인시던트 0건은 다르다. C-K·C-A·C-H, s1·x10·x11을 사용한다. 동일 신호 재조회 전후 id·number 불변, x10은 2건, x11은 같은 Deployment에 신호 15개 이상과 사건 1건을 대조한다. 같은 이름의 새 UID를 추가해 과거 사건과 혼합하지 않는지도 별도 확인한다. 목록에서 30초·2회 이내다. → 실패: 같은 Event UID가 중복 집계되거나 서로 다른 owner가 한 사건이면 실패.
-- 현재: apps/wake/data/incident-detect.js:28의 DETECT는 lookback 60분·active 10분·quiet 5분·gap 30분·maxSignals 200이다. :96의 keyOf에는 UID가 없다.
-- 차이: PVC·Application 대상과 ImagePull 전용 분류가 없으며 동명 UID 교체를 사건 키가 구분하지 않는다.
-- 고정 장치: `apps/wake/data/incident-detect.test.mjs:19` — `an OOMKilled container, a BackOff event and a firing alert of one Deployment become one incident with a stable id`; `apps/wake/data/incident-model.test.mjs:164` — `eventSummary: one row per object and reason, every count from the same rows (N8)`
+- 현재: apps/wake/data/incident-detect.js의 DETECT는 lookback 60분·active 10분·quiet 5분·gap 30분·maxSignals 200이고 keyOf에는 UID가 없다. 흔한 장애 종류(이미지 받기, 컨테이너 설정, probe, 스케줄 원인 갈래, 볼륨·PVC, Evict·Node Pressure, Node NotReady, Job 실패, 롤아웃 멈춤, 생성 거절)는 [F-BE-018](backend.md#F-BE-018)의 종류 표대로 규칙·원인을 나누고, PVC 신호는 그것을 쓰는 Pod의 워크로드로, static Pod 신호는 그 Node로 묶는다.
+- 차이: Application 대상이 없으며 동명 UID 교체를 사건 키가 구분하지 않는다.
+- 고정 장치: `apps/wake/data/incident-detect.test.mjs:19` — `an OOMKilled container, a BackOff event and a firing alert of one Deployment become one incident with a stable id`; `apps/wake/data/incident-detect.test.mjs` — `volume: a PVC event joins the workload whose Pod mounts the claim, and the provisioning failure outranks the scheduling symptom`; `apps/wake/data/incident-model.test.mjs:164` — `eventSummary: one row per object and reason, every count from the same rows (N8)`
 - 출처: D00064, D00091, D00092, D01025, D01037. 근거: D00064, D00091, D00092, D01025, D01037.
 
 - 답 위치·값·출처: `cluster-home.js` 인시던트 목록, `incident-detail.js` 범위·기록; `incident-detect.js:13-28,58-93,96-151`의 `SIGNALS, DETECT, signalsOf, detect`; 저장 `id, key, number, target, reasons, signals, detectedAt, lastSignalAt, phase`. 현재 key는 `cluster|kind|namespace|name`이며 UID를 포함하지 않는다.
@@ -82,8 +82,8 @@ D는 직접 요구 967개와 보조 문맥 85개, 총 1052개다(D:3). 질문이
 ### SRE-Q-05 원인 파악: 실제 관측과 가설이 무엇인가
 
 - 목표: 입력: OOM 원본과 원인이 확인되지 않은 5xx 사건의 원인 절을 연다 → 기대: 관측마다 근거 조각을 열 수 있고 규칙 이름·버전과 추론 등급을 보여 준다. `observe, basis, interpret, verify, unknown`을 혼합하지 않는다. 외부 회신으로 보강한 supported와 직접 확인한 confirmed를 구별한다. AI 연결이 없으면 해석을 만들지 않는다. 원인 문장의 모든 숫자가 C-H의 근거 해시와 일치하고 해당 근거가 실제로 성공한 읽기여야 한다. s1은 OOM 종료 사유·한도·표본을 나란히, s3은 원인 미확정을, s5는 hook 실패와 Application 상태를 구분한다. 근거 부족일 때 확정 원인 0건이다. 작업면에서 60초·3회 이내다. → 실패: 관측·추정이 섞이거나 실패한 근거 읽기가 confirmed를 만들면 실패.
-- 현재: apps/wake/data/incident-model.js:168의 causeStatus는 OOM 외에 observe 단계가 있으면 inferred를 반환한다.
-- 차이: observe 존재와 근본 원인 확인을 동치로 볼 수 없다. 실패 get_evidence도 ai-run.cjs:155의 used에 들어가는 경로가 남아 있다.
+- 현재: apps/wake/data/incident-model.js의 causeStatus는 등급을 그대로 읽는다. 등급은 apps/wake/desktop/incident-hub.cjs의 작업면이 고정 근거의 사실(Pod 상태·소유자 조건·Warning 이벤트)을 감지와 같은 규칙 표로 읽어 정한다: oom-limit, image-pull, 원인 갈래가 읽힌 container-config·unschedulable·create-denied, limit 갈래의 evicted만 confirmed, 규칙의 사실이 있으면 inferred, 없으면 insufficient. crash-loop·alert는 관측이 있으면 inferred로 남는다.
+- 차이: crash-loop·alert는 여전히 관측 존재로 inferred가 된다. 실패 get_evidence도 ai-run.cjs:155의 used에 들어가는 경로가 남아 있다.
 - 고정 장치: `apps/wake/data/incident-model.test.mjs:188` — `verifyCounts and causeStatus`
 - 출처: D00092, D00738, D00742. 근거: D00092, D00738, D00742.
 

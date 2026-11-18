@@ -1026,3 +1026,53 @@ test('detail_pod_relation_bands_count_the_pod_they_carry_like_the_workload_graph
     assert.deepEqual([...new Set(graph.links.map(l => l.value))], ['1'], `each band counts its Pod: ${JSON.stringify(graph.links.map(l => l.value))}`);
   } finally { app.hide(); }
 });
+test('detail: a write names the cluster, a memory raise targets the container that ran out of memory, and a rollback is a guarded template patch', async () => {
+  const { OBJECTS } = CLUSTER, saved = structuredClone({ d: OBJECTS.deployments, p: OBJECTS.pods, r: OBJECTS.replicasets });
+  try {
+    const d = OBJECTS.deployments.find(o => o.metadata.name === 'inventory-worker'), main = d.spec.template.spec.containers[0];
+    d.metadata.generation = 7;
+    d.spec.template.spec.containers = [{ name: 'proxy', image: 'proxy:1', resources: { limits: { memory: '64Mi' } } }, { ...main, resources: { limits: { memory: '256Mi' } } }];
+    for (const p of OBJECTS.pods.filter(o => o.metadata.name.startsWith('inventory-worker-'))) {
+      p.spec.containers = [{ name: 'proxy', image: 'proxy:1' }, ...p.spec.containers];
+      p.status.containerStatuses = [{ name: 'proxy', ready: true, restartCount: 0, state: { running: {} } }, { ...p.status.containerStatuses[0], lastState: { terminated: { reason: 'OOMKilled', exitCode: 137, finishedAt: new Date().toISOString() } } }];
+    }
+    /* the revision before the current one (12) */
+    const current = OBJECTS.replicasets.find(r => r.metadata.name.startsWith('inventory-worker-'));
+    OBJECTS.replicasets.push({ ...structuredClone(current), metadata: { ...structuredClone(current.metadata), name: 'inventory-worker-4c7b1', uid: 'uid-rs-inventory-old', annotations: { 'deployment.kubernetes.io/revision': '11' } },
+      spec: { ...structuredClone(current.spec), template: { metadata: { labels: { app: 'inventory-worker', 'pod-template-hash': '4c7b1' } }, spec: { containers: [{ name: 'inventory-worker', image: 'registry.local/inventory-worker:3.1.0' }] } } } });
+    const app = await pageOf('detail', (key, q, o) => cluster.get(key, q, o), {}, { ...params, ns: 'payments', kind: 'deployments', name: 'inventory-worker' }); await settle(); await settle();
+    const ids = app.page.menus['wake.detail.act']().items.map(i => i.id);
+    assert.ok(ids.includes('act-rollback'));
+    app.page.actions['wake.detail.plan']({ arg: 'rollback' });
+    const back = app.panels.at(-1).prompt;
+    assert.match(back, /"op":"test","path":"\/metadata\/uid","value":"uid-inventory-worker"/);
+    assert.match(back, /"op":"test","path":"\/metadata\/annotations\/deployment.kubernetes.io~1revision","value":"12"/);
+    assert.match(back, /"op":"replace","path":"\/spec\/template","value":\{"metadata":\{"labels":\{"app":"inventory-worker"\}\},"spec":\{"containers":\[\{"name":"inventory-worker","image":"registry.local\/inventory-worker:3.1.0"\}\]\}\}/);
+    assert.match(back, /--context 'fixture-context'/);
+    app.page.actions['wake.detail.plan']({ arg: 'limits' });
+    const prompt = app.panels.at(-1).prompt;
+    assert.match(prompt, /containers\/1\/resources\/limits\/memory/, 'the container that ran out of memory, not the first one');
+    assert.match(prompt, /"path":"\/spec\/template\/spec\/containers\/1\/name","value":"inventory-worker"/);
+    assert.match(prompt, /--context 'fixture-context'/);
+  } finally { OBJECTS.deployments = saved.d; OBJECTS.pods = saved.p; OBJECTS.replicasets = saved.r; }
+  const node = await pageOf('detail', (key, q, o) => cluster.get(key, q, o), {}, { ...params, ns: '', kind: 'nodes', name: CLUSTER.OBJECTS.nodes[0].metadata.name }); await settle(); await settle();
+  node.page.actions['wake.detail.plan']({ arg: 'cordon' });
+  assert.match(node.panels.at(-1).prompt, /"op":"test","path":"\/metadata\/uid".*"op":"add","path":"\/spec\/unschedulable","value":true.*--context 'fixture-context'/);
+});
+test('detail: a Helm-managed Deployment rolls back with helm rollback to the previous release, the caveat in the plan', async () => {
+  const { OBJECTS } = CLUSTER, saved = structuredClone({ d: OBJECTS.deployments, r: OBJECTS.replicasets });
+  try {
+    const d = OBJECTS.deployments.find(o => o.metadata.name === 'inventory-worker');
+    d.metadata.labels = { ...d.metadata.labels, 'app.kubernetes.io/managed-by': 'Helm' }; d.metadata.generation = 7;
+    d.metadata.annotations = { ...d.metadata.annotations, 'meta.helm.sh/release-name': 'inventory', 'meta.helm.sh/release-namespace': 'payments' };
+    const current = OBJECTS.replicasets.find(r => r.metadata.name.startsWith('inventory-worker-'));
+    OBJECTS.replicasets.push({ ...structuredClone(current), metadata: { ...structuredClone(current.metadata), name: 'inventory-worker-4c7b1', uid: 'uid-rs-inventory-old', annotations: { 'deployment.kubernetes.io/revision': '11' } } });
+    const app = await pageOf('detail', (key, q, o) => cluster.get(key, q, o), {}, { ...params, ns: 'payments', kind: 'deployments', name: 'inventory-worker' }); await settle(); await settle();
+    assert.ok(app.page.menus['wake.detail.act']().items.some(i => i.id === 'act-rollback'));
+    app.page.actions['wake.detail.plan']({ arg: 'rollback' });
+    const prompt = app.panels.at(-1).prompt;
+    assert.match(prompt, /helm rollback 'inventory' -n 'payments' --kube-context 'fixture-context' --wait/);
+    assert.ok(prompt.includes(ko['wake.inc.opt.helmPrevious'].replace('{release}', 'inventory')), 'the release-wide, run-time revision caveat travels with the plan');
+    assert.ok(!/revision 11/.test(app.page.menus['wake.detail.act']().items.find(i => i.id === 'act-rollback').label.raw), 'no ReplicaSet revision in a Helm title');
+  } finally { OBJECTS.deployments = saved.d; OBJECTS.replicasets = saved.r; }
+});

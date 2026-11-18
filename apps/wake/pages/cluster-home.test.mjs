@@ -154,6 +154,13 @@ test('cluster_search_lists_names_under_the_toolbar_and_opens_the_detail', async 
   assert.deepEqual(navigated, ['wake://cluster/fixture-context/ns/payments/deployments/checkout-api']);
 });
 
+test('the_incident_list_asks_the_store_for_its_own_cluster_so_detection_of_that_cluster_starts', async () => {
+  const asked = [];
+  await pageWith({ incidents: async p => { asked.push(p); return []; } }, 'fixture-context', 'incidents'); await settle();
+  assert.ok(asked.length, 'the incident store is read');
+  assert.ok(asked.every(p => p?.cluster === 'fixture-context'), JSON.stringify(asked));
+});
+
 test('incident_view_names_the_missing_incident_store', async () => {
   const { page } = await pageWith({}, 'native-context', 'incidents'); await settle();
   assert.match(page.render().s, /wake.view.toolOff/);
@@ -525,6 +532,26 @@ test('incident_result_pills_show_every_result_and_count_the_table_population', a
   const bar = /data-tabs="wake-inc-result"[\s\S]*?pill-ind/.exec(s)?.[0] ?? '';
   const pills = [...bar.matchAll(/data-arg="&quot;(\w+)&quot;"[\s\S]*?<span class="n">(\d+)<\/span>/g)].map(m => [m[1], m[2]]);
   assert.deepEqual(pills, [['all', '1'], ['service', '0'], ['symptom', '1'], ['mitigated', '0'], ['bypassed', '0'], ['resumed', '0']]);
+});
+
+test('a_manual_check_option_names_its_command_a_check_command_not_a_change', async () => {
+  const { compareOption } = await import('./incident-parts.js');
+  const manual = compareOption(k => k, { id: 'check', title: 'c', grade: 'inferred', plan: { route: 'manual', values: [], command: 'kubectl describe pod a -n pay' } });
+  assert.equal(manual.change, 'kubectl describe pod a -n pay');
+  assert.deepEqual(manual.labels, { change: 'wake.inc.act.check' });
+  const write = compareOption(k => k, { id: 'rollback', title: 'r', grade: 'inferred', plan: { route: 'command', values: [], command: 'kubectl rollout undo deployment/api -n pay' } });
+  assert.equal(write.labels, undefined, 'a write keeps the change word');
+});
+
+test('an_approved_plan_advances_its_steps_only_on_receipts_never_on_the_approval_alone', async () => {
+  const { routeSteps } = await import('./incident-parts.js');
+  const pr = { route: 'pr', values: [{ path: 'x', before: 1, after: 2 }] };
+  assert.deepEqual(routeSteps(pr, { pr: null }).map(s => s.state), ['wait', 'wait', 'wait', 'wait'], 'approved but no PR yet');
+  assert.deepEqual(routeSteps(pr, { pr: 'github-unconnected' }).map(s => [s.key, s.state]), [['pr', 'fail'], ['merge', 'wait'], ['sync', 'wait'], ['rollout', 'wait']]);
+  assert.deepEqual(routeSteps(pr, { pr: 'pending' })[0].state, 'wait');
+  assert.deepEqual(routeSteps(pr, { pr: { url: 'https://github.example/pull/1' } })[0].state, 'done');
+  assert.deepEqual(routeSteps({ route: 'command', values: [] }, {}).map(s => s.state), ['wait'], 'a command the person runs outside Wake has no receipt');
+  assert.deepEqual(routeSteps({ id: 'rollback', route: 'helm', values: [] }, {}).map(s => s.key), ['helmRollback', 'rollout'], 'a Helm rollback is not named helm upgrade');
 });
 
 /* A-22: 홈 지표 아래 카드(문제 Pod · Unavailable 워크로드 · 경고 이벤트 …)는 따로 그려져 이름 칸 폭이 글 길이를 따라 첫 구분선이 줄마다 달랐다.

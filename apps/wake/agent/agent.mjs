@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import { lookup } from 'node:dns/promises';
 import { pathToFileURL } from 'node:url';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.1.1';
 export const BEAT_MS = 5000;
 export const LEASE_SECONDS = 15;
 export const HISTORY_MINUTES = 360;
@@ -48,14 +48,28 @@ export function ratePerSec(times, now) {
 /** Pod가 준비됐는지(끝난 Pod는 준비 대상이 아님) */
 export const podReady = p => p?.status?.phase === 'Succeeded' || (p?.status?.conditions ?? []).some(c => c.type === 'Ready' && c.status === 'True');
 
+/**
+ * Lease에 낼 캐시 값. health: 종류마다 { synced, at }(synced: 마지막 list가 성공했고 그 뒤 watch가 끊기지 않음, at: 원본과 마지막으로 맞춘 시각).
+ * 맞춰지지 않은 감시의 값은 모름(null)으로 낸다: watch나 다시 list가 실패해도 메모리에 남은 옛 캐시를 지금 값처럼 내지 않는다.
+ */
+export function cacheOf({ nodes, pods, health, rate }) {
+  const nodeOk = !!health.Node?.synced, podOk = !!health.Pod?.synced;
+  const own = [...nodes.values()][0], ready = own ? (own.status?.conditions ?? []).find(c => c.type === 'Ready') : null;
+  const list = [...pods.values()].filter(p => !p.metadata?.deletionTimestamp);
+  return { objects: nodeOk && podOk ? nodes.size + pods.size : null, rate, pods: podOk ? list.length : null, podsNotReady: podOk ? list.filter(p => !podReady(p)).length : null,
+    nodeReady: nodeOk && ready ? ready.status === 'True' : null };
+}
 
-/** 갱신할 Lease 본문 */
-export function leaseBody({ name, namespace, node, pod, clusterId, owner, previous, now, apiMs, dnsMs, cache, history }) {
+const text = v => (v == null ? '' : String(v));
+/** 갱신할 Lease 본문. 감시 상태(watch-synced: 맞춰진 종류, watch-synced-at: 그중 가장 오래된 맞춘 시각)는 Lease 갱신과 따로 낸다 */
+export function leaseBody({ name, namespace, node, pod, clusterId, owner, previous, now, apiMs, dnsMs, cache, history, health = {} }) {
+  const synced = WATCH.filter(k => health[k]?.synced), at = WATCH.map(k => health[k]?.at).filter(v => v != null);
   const annotations = {
     [A + 'version']: VERSION, [A + 'node']: node, [A + 'watch']: WATCH.join(','),
-    [A + 'api-ms']: apiMs == null ? '' : String(apiMs), [A + 'dns-ms']: dnsMs == null ? '' : String(dnsMs),
-    [A + 'objects']: String(cache.objects), [A + 'changes-per-sec']: String(cache.rate),
-    [A + 'pods']: String(cache.pods), [A + 'pods-not-ready']: String(cache.podsNotReady), [A + 'node-ready']: cache.nodeReady == null ? '' : String(cache.nodeReady),
+    [A + 'watch-synced']: synced.join(','), [A + 'watch-synced-at']: at.length === WATCH.length ? new Date(Math.min(...at)).toISOString() : '',
+    [A + 'api-ms']: text(apiMs), [A + 'dns-ms']: text(dnsMs),
+    [A + 'objects']: text(cache.objects), [A + 'changes-per-sec']: text(cache.rate),
+    [A + 'pods']: text(cache.pods), [A + 'pods-not-ready']: text(cache.podsNotReady), [A + 'node-ready']: text(cache.nodeReady),
     [A + 'history']: encodeHistory(history),
     ...(clusterId ? { [A + 'cluster-id']: clusterId } : {}),
   };
@@ -107,8 +121,8 @@ function api() {
   return { json, watch };
 }
 
-/** 한 종류의 list + watch를 계속(끊기면 마지막 resourceVersion부터, 410이면 다시 list). store: Map(uid -> 객체) */
-async function keepWatching(k, path, store, onChange, log) {
+/** 한 종류의 list + watch를 계속(끊기면 마지막 resourceVersion부터, 410이면 다시 list). store: Map(uid -> 객체), health: { synced, at }(cacheOf) */
+async function keepWatching(k, path, store, health, onChange, log) {
   let rv = null;
   for (;;) {
     try {
@@ -116,17 +130,18 @@ async function keepWatching(k, path, store, onChange, log) {
         const r = await k.json('GET', path);
         if (r.status !== 200) throw new Error(`list ${r.status}`);
         store.clear(); for (const o of r.body.items ?? []) store.set(o.metadata.uid, o);
-        rv = r.body.metadata?.resourceVersion; onChange();
+        rv = r.body.metadata?.resourceVersion; health.synced = true; health.at = Date.now(); onChange();
       }
       const sep = path.includes('?') ? '&' : '?';
       const r = await k.watch(`${path}${sep}watch=1&allowWatchBookmarks=true&timeoutSeconds=300&resourceVersion=${encodeURIComponent(rv)}`, e => {
         if (e.object?.metadata?.resourceVersion) rv = e.object.metadata.resourceVersion;
+        health.at = Date.now();
         if (e.type === 'BOOKMARK') return;
         if (e.type === 'DELETED') store.delete(e.object.metadata.uid); else store.set(e.object.metadata.uid, e.object);
         onChange();
       });
-      if (r.gone) rv = null;
-    } catch (error) { log('watch_error', { path: path.split('?')[0], error: error.message }); rv = null; await new Promise(r => setTimeout(r, 5000)); }
+      if (r.gone) { rv = null; health.synced = false; }
+    } catch (error) { log('watch_error', { path: path.split('?')[0], error: error.message }); rv = null; health.synced = false; await new Promise(r => setTimeout(r, 5000)); }
   }
 }
 
@@ -135,10 +150,10 @@ async function main() {
   if (!node || !pod || !namespace) throw new Error('NODE_NAME, POD_NAME and POD_NAMESPACE are required');
   const log = (event, fields = {}) => process.stdout.write(JSON.stringify({ at: new Date().toISOString(), event, node, ...fields }) + '\n');
   const k = api(), name = `wake-agent-${node}`, leasePath = `/apis/coordination.k8s.io/v1/namespaces/${namespace}/leases`;
-  const nodes = new Map(), pods = new Map(); let changes = [];
+  const nodes = new Map(), pods = new Map(), health = { Node: { synced: false, at: null }, Pod: { synced: false, at: null } }; let changes = [];
   const changed = () => { changes.push(Date.now()); };
-  void keepWatching(k, `/api/v1/nodes?fieldSelector=${encodeURIComponent('metadata.name=' + node)}`, nodes, changed, log);
-  void keepWatching(k, `/api/v1/pods?fieldSelector=${encodeURIComponent('spec.nodeName=' + node)}`, pods, changed, log);
+  void keepWatching(k, `/api/v1/nodes?fieldSelector=${encodeURIComponent('metadata.name=' + node)}`, nodes, health.Node, changed, log);
+  void keepWatching(k, `/api/v1/pods?fieldSelector=${encodeURIComponent('spec.nodeName=' + node)}`, pods, health.Pod, changed, log);
 
   let previous = null, owner = null, history = { start: null, values: [] }, apiMs = null;
   const got = await k.json('GET', `${leasePath}/${name}`).catch(() => null);
@@ -156,11 +171,9 @@ async function main() {
     let dnsMs = null;
     try { const t = Date.now(); await lookup('kubernetes.default.svc'); dnsMs = Date.now() - t; } catch (error) { log('dns_error', { error: error.code || error.message }); }
     const r = ratePerSec(changes, began); changes = r.times;
-    const own = [...nodes.values()][0], ready = own ? (own.status?.conditions ?? []).find(c => c.type === 'Ready') : null;
-    const podList = [...pods.values()].filter(p => !p.metadata?.deletionTimestamp);
-    const cache = { objects: nodes.size + pods.size, rate: r.rate, pods: podList.length, podsNotReady: podList.filter(p => !podReady(p)).length, nodeReady: ready ? ready.status === 'True' : null };
+    const cache = cacheOf({ nodes, pods, health, rate: r.rate });
     if (apiMs != null) history = pushHistory(history, Math.floor(began / 60000), apiMs);
-    const body = leaseBody({ name, namespace, node, pod, clusterId, owner, previous, now: began, apiMs, dnsMs, cache, history });
+    const body = leaseBody({ name, namespace, node, pod, clusterId, owner, previous, now: began, apiMs, dnsMs, cache, history, health });
     const t = Date.now();
     try {
       let res = previous ? await k.json('PUT', `${leasePath}/${name}`, body) : await k.json('POST', leasePath, body);

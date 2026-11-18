@@ -5,7 +5,11 @@
  * 글은 만들지 않고 코드(route, checks)와 값만 돌려준다.
  */
 
+import { discloseObject } from './mask.js';
+
 const TRACKING = 'argocd.argoproj.io/tracking-id';
+/* a Helm release name (lowercase DNS-like, at most 53) and a namespace name (DNS label) */
+const HELM_NAME = /^[a-z0-9](?:[-a-z0-9.]{0,51}[a-z0-9])?$/, NAMESPACE_NAME = /^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$/;
 const groupOf = apiVersion => (String(apiVersion ?? '').includes('/') ? String(apiVersion).split('/')[0] : '');
 const keyOf = r => ({ group: r.group ?? groupOf(r.apiVersion), kind: r.kind, namespace: r.metadata?.namespace ?? r.namespace ?? '', name: r.metadata?.name ?? r.name });
 const same = (a, b) => (a.group ?? '') === (b.group ?? '') && a.kind === b.kind && (a.namespace ?? '') === (b.namespace ?? '') && a.name === b.name;
@@ -76,25 +80,74 @@ const resourceName = r => `${String(r.kind).toLowerCase()}/${r.metadata?.name ??
  * route: 'pr' for an Application that syncs automatically (or whose sync policy is unknown): the change goes to its repository and path, never as a
  * command against the cluster that the next sync would undo (N2); a change without values (a rollback, a restart) becomes a revert of the synced revision.
  * 'helm' for a Helm release: helm upgrade with --reuse-values and one --set per value. 'command' otherwise: one kubectl JSON patch with every value,
- * or the change's own command when it has no values.
+ * or the change's own kubectl command when it has no values. The patch fails closed on drift: JSON patch test operations first check the resource UID,
+ * its metadata.generation (any spec change since the plan, such as a newer rollout), each guard ({ path, value }, such as the container name at an
+ * index; a guard may name its JSON pointer directly) and each value's before, then write (value.op 'add' for a field that may be absent, else
+ * 'replace'), then the change's own patch operations (change.patch, as rollbackChange makes).
+ * context: the kube context the plan was made for; every kubectl and helm command names it (never the operator's current context). Without a
+ * context a write route has no command (check 'context-unbound').
+ * 'manual' for a manual step (change.manual): the check command only, no value, no write.
  * checks: codes the screen words ('gitops-auto-sync', 'gitops-sync-unknown', 'git-revert', 'gitops-manual-drift', 'helm-release',
- * 'helm-chart-unknown', 'not-gitops').
+ * 'helm-chart-unknown', 'helm-previous-release', 'helm-scope-unknown', 'not-gitops', 'manual-step', 'context-unbound').
+ * preview: the command as shown and given to a model, its patch values passed through the disclosure policy (data/mask.js discloseObject).
  */
-export function planFor({ resource, change, owner }) {
-  const values = (change?.values ?? []).map(v => ({ path: v.path, before: v.before, after: v.after }));
+export function planFor({ resource, change, owner, context = null }) {
+  const values = (change?.values ?? []).map(v => ({ path: v.path, before: v.before, after: v.after, ...(v.op ? { op: v.op } : {}) }));
   const target = { kind: resource?.kind, namespace: resource?.metadata?.namespace ?? '', name: resource?.metadata?.name };
-  const base = { id: change?.id ?? null, title: change?.title ?? null, target, values, diff: change?.diff ?? null };
+  const guards = (change?.guards ?? []).map(g => ({ path: g.path, value: g.value, ...(g.pointer ? { pointer: g.pointer } : {}) })), extra = change?.patch ?? [];
+  const base = { id: change?.id ?? null, title: change?.title ?? null, target, values, guards, diff: change?.diff ?? null };
+  /* a manual step (change.manual): the fix lies outside what Wake may change (a Secret value, registry credentials, a quota policy). It carries the
+     read-only command to check with, changes no value and takes no write route whoever owns the resource */
+  if (change?.manual) return { ...base, values: [], guards: [], diff: null, route: 'manual', command: change.command ?? null, checks: ['manual-step'] };
   if (owner?.kind === 'argocd' && owner.auto !== false) {
     const revert = !values.length;
     return { ...base, route: 'pr', repo: owner.repo, path: change?.diff?.path ?? owner.path, app: owner.app, revision: owner.revision, command: null,
       checks: ['gitops-auto-sync', ...(owner.auto == null ? ['gitops-sync-unknown'] : []), ...(revert ? ['git-revert'] : [])] };
   }
+  const unbound = context ? [] : ['context-unbound'];
+  if (owner?.kind === 'helm' && change?.rollback) {
+    /* the release scope must be a Helm release name and a namespace name (strict, then quoted): anything else is not put in a command */
+    if (!HELM_NAME.test(owner.release ?? '') || !NAMESPACE_NAME.test(owner.namespace ?? '')) return { ...base, values: [], route: 'helm', release: owner.release ?? null, namespace: owner.namespace ?? null, command: null, checks: ['helm-release', 'helm-scope-unknown', ...unbound] };
+    /* a Helm-owned Deployment rolls back as its release: helm rollback to the revision before the current one when a release history is given
+       (owner.history). Wake does not read the release Secrets (RULE-SECRET); without that history the revision is left out and Helm itself rolls back
+       to the previous release at run time (check 'helm-previous-release': the target is resolved then, not in the plan) */
+    const prev = Math.max(...(owner.history ?? []).map(h => Number(h.revision)).filter(r => Number.isFinite(r) && r < Number(owner.revision)), -Infinity), named = Number.isFinite(prev);
+    const command = context ? `helm rollback ${quote(owner.release)}${named ? ` ${prev}` : ''} -n ${quote(owner.namespace)} --kube-context ${quote(context)} --wait` : null;
+    return { ...base, values: [], route: 'helm', release: owner.release, namespace: owner.namespace, revision: named ? prev : null, command,
+      checks: ['helm-release', ...(named ? [] : ['helm-previous-release']), ...unbound] };
+  }
   if (owner?.kind === 'helm') {
     const sets = values.map(v => `--set ${quote(`${v.path}=${v.after}`)}`).join(' ');
-    const command = owner.chart ? `helm upgrade ${owner.release} ${owner.chart} -n ${owner.namespace} --reuse-values${sets ? ` ${sets}` : ''}` : null;
-    return { ...base, route: 'helm', release: owner.release, namespace: owner.namespace, command, checks: ['helm-release', ...(owner.chart ? [] : ['helm-chart-unknown'])] };
+    const command = owner.chart && context ? `helm upgrade ${owner.release} ${owner.chart} -n ${owner.namespace} --reuse-values${sets ? ` ${sets}` : ''} --kube-context ${quote(context)}` : null;
+    return { ...base, route: 'helm', release: owner.release, namespace: owner.namespace, command, checks: ['helm-release', ...(owner.chart ? [] : ['helm-chart-unknown']), ...unbound] };
   }
   const ns = target.namespace ? ` -n ${target.namespace}` : '';
-  const patch = values.length ? `kubectl patch ${resourceName(resource)}${ns} --type=json -p ${quote(JSON.stringify(values.map(v => ({ op: 'replace', path: pointer(v.path), value: v.after }))))}` : change?.command ?? null;
-  return { ...base, route: 'command', command: patch, checks: [owner?.kind === 'argocd' ? 'gitops-manual-drift' : 'not-gitops'] };
+  const uid = resource?.metadata?.uid, generation = resource?.metadata?.generation;
+  const ops = [...(uid ? [{ op: 'test', path: '/metadata/uid', value: uid }] : []), ...(generation != null ? [{ op: 'test', path: '/metadata/generation', value: generation }] : []),
+    ...guards.map(g => ({ op: 'test', path: g.pointer ?? pointer(g.path), value: g.value })),
+    ...values.filter(v => v.before != null).map(v => ({ op: 'test', path: pointer(v.path), value: v.before })), ...values.map(v => ({ op: v.op ?? 'replace', path: pointer(v.path), value: v.after })), ...extra];
+  const own = change?.command ? `${change.command} --context ${quote(context)}` : null;
+  const command = !context ? null : values.length || extra.length ? `kubectl patch ${resourceName(resource)}${ns} --type=json -p ${quote(JSON.stringify(ops))} --context ${quote(context)}` : own;
+  /* what is shown and given to a model (a historical template may carry literal env values): the same command with the patch operations disclosed */
+  const preview = command && extra.length ? `kubectl patch ${resourceName(resource)}${ns} --type=json -p ${quote(JSON.stringify(discloseObject(ops).value))} --context ${quote(context)}` : command;
+  return { ...base, route: 'command', command, preview, checks: [owner?.kind === 'argocd' ? 'gitops-manual-drift' : 'not-gitops', ...unbound] };
+}
+
+/**
+ * A rollback of a Deployment to an earlier ReplicaSet, as a change for planFor: the Deployment's spec.template becomes that ReplicaSet's template
+ * (without its pod-template-hash label, which the controller adds), guarded so that it applies only to the same object (UID), at the same
+ * metadata.generation (no rollout since the plan) and on the revision it was planned against. Unlike kubectl rollout undo it cannot land on a
+ * same-name replacement or undo a newer rollout. Returns { id, title, revision (the ReplicaSet's), guards, patch, values: [] }, or null when the Deployment
+ * lacks its UID, generation or revision annotation (no guard, no rollback).
+ */
+export function rollbackChange({ deployment, to, title = 'rollback' }) {
+  const REVISION = 'deployment.kubernetes.io/revision';
+  const template = structuredClone(to?.spec?.template ?? {});
+  if (template.metadata?.labels) delete template.metadata.labels['pod-template-hash'];
+  const current = deployment?.metadata?.annotations?.[REVISION];
+  /* every guard is required: without the UID, the generation and the live revision the patch could land on something else */
+  if (!deployment?.metadata?.uid || deployment.metadata.generation == null || current == null) return null;
+  return { id: 'rollback', title, rollback: true, revision: Number(to?.metadata?.annotations?.[REVISION]) || null, values: [],
+    guards: [{ path: `metadata.annotations.${REVISION}`, pointer: `/metadata/annotations/${REVISION.replace(/~/g, '~0').replace(/\//g, '~1')}`, value: current }],
+    patch: [{ op: 'replace', path: '/spec/template', value: template }] };
 }

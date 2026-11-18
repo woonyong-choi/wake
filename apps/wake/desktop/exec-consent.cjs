@@ -1,7 +1,8 @@
 /*
- * kubeconfig exec 인증 명령의 사람 동의(userData/exec-consent.json, 0600). 열쇠는 k8s.cjs execConsentKey(찾은 명령의 실제 경로 + 인자).
+ * kubeconfig exec 인증 명령의 사람 동의(userData/exec-consent.json, 0600). 열쇠는 k8s.cjs execConsentKey(실행 파일 + 인자 + kubeconfig 환경의 해시).
  * 동의하지 않은 exec 명령은 실행하지 않는다(k8s.cjs가 needs_consent로 거절). 파일을 못 읽으면 동의 없음으로 본다.
- *   granted(key) -> bool   grant(key, { command, args })
+ * 기록에는 사람이 본 것만(명령 경로, 가린 인자, 환경 변수 이름): 비밀 값은 쓰지 않는다.
+ *   granted(key) -> bool   grant(key, { command, args, env })
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -25,8 +26,8 @@ function createExecConsent({ userData, filename = 'exec-consent.json' }) {
   }
   return {
     granted: key => typeof key === 'string' && Object.hasOwn(load(), key),
-    grant(key, { command, args }) {
-      const entries = { ...load(), [key]: { command: String(command), args: (args || []).map(String), at: new Date().toISOString() } };
+    grant(key, { command, args, env }) {
+      const entries = { ...load(), [key]: { command: String(command), args: (args || []).map(String), env: (env || []).map(String), at: new Date().toISOString() } };
       const keys = Object.keys(entries);
       for (const old of keys.slice(0, Math.max(0, keys.length - MAX_ENTRIES))) delete entries[old];
       fs.mkdirSync(userData, { recursive: true });

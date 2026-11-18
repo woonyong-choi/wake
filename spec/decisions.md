@@ -86,7 +86,7 @@ Electron 2자리, 무거운 점검 1개, 독립 검증 1개다. 자기 PID·포�
 
 ### D-USR-2026-11-17-6~10 범위 검색 상자 v3
 
-2026-11-17 사용자가 견본의 범위 검색 상자 v3(sim-views.js scopeBox · scopeHead · pickMenu)를 받아들이며 정한 다섯 가지다. 화면 계약은 [SCR-SEARCH-SCOPE](screens/common.md#SCR-SEARCH-SCOPE), 실행은 [H-009 범위 검색 상자 v3 이식](tasks.md#H-009-scope-v3).
+2026-11-17 사용자가 견본의 범위 검색 상자 v3(design/sim/sim-views.js scopeBox · scopeHead · pickMenu)를 받아들이며 정한 다섯 가지다. 화면 계약은 [SCR-SEARCH-SCOPE](screens/common.md#SCR-SEARCH-SCOPE), 실행은 [H-009 범위 검색 상자 v3 이식](tasks.md#H-009-scope-v3).
 
 - D-USR-2026-11-17-6: 상자는 한 줄이다(kit composer wide): [리소스 종류 ▾][namespace ▾] 글(화면마다 자리 표시 글) … 실행. 글이 여러 줄일 때만 커진다.
 - D-USR-2026-11-17-7: 기간은 상자 밖, 상자 바로 아래 제 줄의 오른쪽 끝이다(처음 승인은 왼쪽, 같은 날 사용자가 오른쪽으로 바꿈; 견본 .v-when도 같음). 홈·네트워크·GitOps·이벤트·로그·알림·인시던트에만 있고 리소스에는 없다. kit composer의 `end` 칸은 지운다(D-USR-2026-11-17-1 대체).
@@ -140,7 +140,7 @@ Electron 2자리, 무거운 점검 1개, 독립 검증 1개다. 자기 PID·포�
 - D-USR-2026-11-18-33: LICENSE 검토는 작업자가 하고(사용자 지시), 검토 반영본으로 "초안" 표시와 [확인 필요]를 뺀다. 남는 빈칸은 판매 전에 채울 사업자 정보(상호·사업자등록번호·통신판매업 신고번호·연락처) 하나다. 기본 조건: 사용권 하나는 지정 사용자 1명·기기 3대, 30일 품질 보증(고치거나 환불), 구매 7일 안 이유 없는 전액 환불, 책임 한도 직전 12개월 사용료(고의·중과실·생명·신체 제외), 대한민국 법, 소비자는 민사소송법상 관할·사업자는 서울중앙지방법원. DMG는 열기 전에 이 계약을 보이고 동의를 받는다. Apple 서명·공증은 뒤로 미룬다(D-USR-2026-11-18-31의 `--release`는 그때 한다).
 - D-USR-2026-11-18-34: 에이전트 이미지의 실행 단은 scratch 위에 node 실행 파일과 그 라이브러리(musl, libstdc++, libgcc)만 둔다. 셸·패키지 관리자와 GPL-2.0 전용 구성 요소(busybox, apk-tools)를 싣지 않고, 남은 구성 요소의 라이선스 원문과 GCC 런타임 소스 제공 안내는 이미지의 /licenses에 둔다.
 - 출처: 2026-11-18 소유자 결정(법률 검토 초안은 작업 안에서 작성, 애플 개발자 서명은 뒤로 미룸)
-- D-USR-2026-11-19-1: Wake는 판매하지 않고 오픈소스로 공개한다. 라이선스는 Apache-2.0이며 D-USR-2026-11-18-32·33의 상용 EULA와 DMG 동의 화면을 대신한다. 루트에 Apache-2.0 공식 원문 `LICENSE`와 `NOTICE`(저작권자 choi woo-nyong, 제3자 고지 위치)를 두고, `apps/wake/package.json` license는 `Apache-2.0`, 패키지 점검(`kit/desktop/release.cjs` packageProblems)은 package.json license가 LICENSE 원문의 SPDX와 같은지와 Apache-2.0일 때 NOTICE가 있는지를 본다. 에이전트 이미지는 /licenses에 같은 LICENSE와 NOTICE를 싣고 OCI 라벨 licenses=Apache-2.0, source=공개 저장소 주소(`https://github.com/woonyong-choi/wake`)를 단다. 현재 공개 이미지 digest는 `sha256:5c55e3101bff9502bd801b2d64fa5c4de4221dd6bf0ab71bc08fa5575aa7562b`다(이전 0cf810c8…는 대체됨). 앱에는 가입·계정·사용권 확인이 없다(만들지 않는다).
+- D-USR-2026-11-19-1: Wake는 판매하지 않고 오픈소스로 공개한다. 라이선스는 Apache-2.0이며 D-USR-2026-11-18-32·33의 상용 EULA와 DMG 동의 화면을 대신한다. 루트에 Apache-2.0 공식 원문 `LICENSE`와 `NOTICE`(저작권자 choi woo-nyong, 제3자 고지 위치)를 두고, `apps/wake/package.json` license는 `Apache-2.0`, 패키지 점검(`kit/desktop/release.cjs` packageProblems)은 package.json license가 LICENSE 원문의 SPDX와 같은지와 Apache-2.0일 때 NOTICE가 있는지를 본다. 에이전트 이미지는 /licenses에 같은 LICENSE와 NOTICE를 싣고 OCI 라벨 licenses=Apache-2.0, source=공개 저장소 주소(`https://github.com/woonyong-choi/wake`)를 단다. 현재 공개 이미지는 `0.1.1`, digest `sha256:2878f430d5049a0a9b29c7aafb7ec542b334f94862ac52c9a32658a86c2ebe2c`다(이전 0.1.0의 5c55e310…와 0cf810c8…는 대체됨). 앱에는 가입·계정·사용권 확인이 없다(만들지 않는다).
 - 출처: 2026-11-19 소유자 결정(판매하지 않고 공개, 라이선스 Apache-2.0)
 
 ## 기본값 채택

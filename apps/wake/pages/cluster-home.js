@@ -1,6 +1,6 @@
 import { compareResources, compareHistory, compareIncidents } from '../data/table-order.js';
 /*
- * 클러스터 본문 화면(시뮬레이션 sim-views.js): 홈, 지표 화면, 인시던트 목록. GitOps·알림·네트워크·로그·리소스는 각자의 페이지.
+ * 클러스터 본문 화면(시뮬레이션 design/sim/sim-views.js): 홈, 지표 화면, 인시던트 목록. GitOps·알림·네트워크·로그·리소스는 각자의 페이지.
  * 사이드바의 클러스터 구역과 경로 막대(클러스터 › 구역 › 이름)가 이 화면들 사이를 잇는다. 본문 안 알약 탭은 없다.
  * 홈(sim home): 머리(클러스터 · 출처 · 환경 · 보관) → 도구 칩 → 범위 검색 상자(scope-box.js: 리소스 이름 · 종류 · namespace · 기간) → 출처 끊김 줄 → 검색 결과 → 요약 막대
  *   → 인시던트 → 지표 막대 넷 + Pod 상태 흐름 → 문제 Pod → Unavailable 워크로드 → 경고 이벤트 → 최근 변경.
@@ -163,7 +163,7 @@ bootPage(config, ctx => {
       workloads: [() => Promise.all(['deployments', 'statefulsets', 'daemonsets', 'configmaps', 'nodes'].map(kind => data.get('resources', { cluster: id, ns: '_all', kind }).catch(() => [])))
         .then(([d, s, ds, cm, n]) => ({ workloads: [...d, ...s, ...ds].map(w => ({ ...w, kind: w.kind || 'Deployment' })), configmaps: cm, nodes: n })), value => { raw.workloads = value?.workloads || []; raw.configmaps = value?.configmaps || []; nodes = value?.nodes || []; }],
       events: [() => data.get('events', { cluster: id, ns: '_all' }), value => { raw.events = value || []; eventsAt = value?.timeBasis?.referenceAt ?? null; }],
-      incidents: [() => data.get('incidents'), value => { raw.incidents = (value || []).filter(i => i.cluster === id); incidentsReadyAt = performance.now(); }],
+      incidents: [() => data.get('incidents', { cluster: id }), value => { raw.incidents = value || []; incidentsReadyAt = performance.now(); }],
       tools: [() => data.get('clusterTools', { cluster: id, discovery: {}, refresh }), value => { tools = value || []; if (value) rememberFound(ctx.settings, ctx.api?.setSetting, id, read.ok(value)); }], /* 열거가 오면 찾기 확인 근거(wake.tools.found)에 반영: 열거를 못 읽는 동안에도 확인한 도구가 남음 */
       agent: [() => data.get('agent', { cluster: id }), value => { agent = value || {}; }],
     };

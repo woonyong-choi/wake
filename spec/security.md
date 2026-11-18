@@ -79,7 +79,7 @@ Wake의 읽기·제안·사람 승인과 자격·자료 전송 경계를 정한�
 ### SEC-006 승인·실행·복구의 분리 <a id="SEC-006"></a>
 
 - 목표: 입력: 같은 승인 ID에 승인·거절을 전송하고 대상 UID를 교체한다 → 기대: 승인 화면은 대상 cluster/namespace/kind/name/UID, resourceVersion, 변경 경로와 전후 값 전체, 위험, 근거, 실행 경로를 보여 준다; [RULE-APPROVAL](rules.md#RULE-APPROVAL). 대상 교체·오래된 변경안은 재승인 없이 실행하지 않는다. Draft PR 생성, 다른 사람 리뷰, 병합, 배포, 복구 확인은 각각 별도 사건이다;  실패: 첫 결정이 덮이거나 새 UID를 재승인 없이 실행하면 실패.
-- 현재: 부분. `apps/wake/desktop/approvals.cjs:43–55`는 첫 결정 재생과 감사 기록을 구현했다. `propose`의 target에는 UID/resourceVersion 강제가 없고 `decide`에 재조회가 없다. `github()`가 있으면 문자열 `pending`, 없으면 `github-unconnected`만 기록한다. 실제 PR 실행은 없다. `apps/wake/desktop/hub.cjs:104`는 결정자를 메인 프로세스 사용자로 정하지만 `apps/wake/desktop/services.cjs:577` 자체에는 `from`과 owner 검사가 없다. 일반 IPC 허용과 사람의 명시 선택을 같은 보장으로 보지 않는다.
+- 현재: 부분. `apps/wake/desktop/approvals.cjs`는 첫 결정 재생과 감사 기록, 요청마다 불변 계획 해시(`planHash`: 클러스터·대상·인시던트·저장된 계획)를 구현했다. 허용은 메인 프로세스가 직접 띄우는 OS 확인 창(`kit/desktop/main.cjs` confirmNative → services `confirm`, 그 승인 ID·계획 해시·대상·바뀌는 값)에서 사람이 승인을 누를 때만 기록하고, 취소·확인 없음은 `not_confirmed`, 확인 중 계획이 바뀌면 `plan_changed`로 기록 0이다. 화면이 보낸 `approval.decide`만으로는 허용되지 않는다. 거절은 밖을 바꾸지 않아 확인 없이 기록한다. `propose`의 target에는 UID/resourceVersion 강제가 없고 `decide`에 클러스터 재조회가 없다. `github()`가 있으면 문자열 `pending`, 없으면 `github-unconnected`만 기록한다. 실제 PR 실행은 없다.
 - 차이: T-SEC-06. U-36·U-37에서 승인 sender·대상 고정·동시 결정·실행 멱등을 구현한다. 자동 실행을 붙이기 전에 이 경계를 닫는다. 대상 approvals.cjs, hub.cjs, services.cjs, AI 승인 어댑터; 자동 확인 `node --test apps/wake/desktop/hub.test.cjs`; 운영 검사 사람 승인·PR·교체 대상; 선행 T-SEC-18·19, U-36·37.
 - 고정 장치: `apps/wake/desktop/hub.test.cjs` — `approvals keep the first decision, never run anything, and record a Draft PR that cannot be made without GitHub`
 - 출처: D00648, D00869
@@ -126,7 +126,7 @@ Wake의 읽기·제안·사람 승인과 자격·자료 전송 경계를 정한�
 ### SEC-011 마스킹·개인정보·내보내기 <a id="SEC-011"></a>
 
 - 목표: 입력: 토큰·이메일 sentinel 근거를 도구·모델·감사·보고서로 전달한다 → 기대: 비밀·개인정보가 허브 도구 반환, 근거 저장, 모델 입력, 감사, 대화, 보고서·내보내기에 나오기 전에 같은 `maskText` 규칙을 적용한다. 표시는 `••••`이고 `n`은 이번에 새로 가린 자리 수다. 명령 기록은 출력 전체를 저장하지 않고 `maskSecrets`를 거친 명령을 남긴다. 마스킹을 Secret 읽기 허가로 쓰지 않는다. → 실패: 출력에 sentinel이 남거나 이미 가린 값을 새 마스킹 수로 중복 계산하면 실패.
-- 현재: 부분. `apps/wake/data/mask.js`의 패턴과 `apps/wake/desktop/hub-store.cjs`의 문자열별 저장 마스킹이 있다. `apps/wake/desktop/ai-run.cjs`는 공급자 실패 이유를 maskText로 가린 뒤 길이를 제한하고 같은 문구를 오류 이벤트와 대화에 쓴다. 저장 오류 code도 가린다. 어댑터의 서비스 reject는 원문을 전달하지 않고 고정된 request_failed 이유를 쓴다. 합성 token 반례에서 최초 이벤트·디스크·재조회 문구를 대조했다.
+- 현재: 부분. `apps/wake/data/mask.js`의 패턴과 `apps/wake/desktop/hub-store.cjs`의 문자열별 저장 마스킹이 있다. 로그 글의 공개 정책 `discloseText`(maskText + 이름표 없는 불투명 자격)는 로그 IPC(`services.cjs` kube.logs·loki.logs)와 도구 `read_logs`·그것으로 만드는 로그 근거(`hub-tools.cjs`)에 적용한다. 인시던트 허브가 직접 읽어 고정하는 로그 근거(`incident-hub.cjs` cite 입구)는 아직 maskText만 지난다. `apps/wake/desktop/ai-run.cjs`는 공급자 실패 이유를 maskText로 가린 뒤 길이를 제한하고 같은 문구를 오류 이벤트와 대화에 쓴다. 저장 오류 code도 가린다. 어댑터의 서비스 reject는 원문을 전달하지 않고 고정된 request_failed 이유를 쓴다. 합성 token 반례에서 최초 이벤트·디스크·재조회 문구를 대조했다.
 - 차이: T-SEC-11. 이번 오류 이벤트의 합성 token 유출은 해소했다. 구조형 비밀의 객체 키 문맥, 일반 모델 응답, 알려지지 않은 외부 토큰 형식, 보고서·내보내기 전체 경계는 미완료다. 대상 data/mask.js, ai-run.cjs, 보고서·내보내기 소비 경로이며 실제 Electron의 툴팁·오류·export 확인은 H-009에 남는다.
 - 고정 장치: `apps/wake/desktop/ai-target.test.cjs`의 run_provider_error_is_masked_before_event_and_matches_reopened_message는 대역 공급자의 합성 token이 오류 이벤트·디스크·재열기 문구에 남지 않음을 검사한다. `apps/wake/desktop/hub.test.cjs`의 results are masked before they leave the tool layer도 유지한다. 실행은 [묶음 1 수정](tasks.md#batch1-fixes)이다.
 - 출처: D00466, D00473
@@ -189,7 +189,7 @@ Wake의 읽기·제안·사람 승인과 자격·자료 전송 경계를 정한�
 | collect/get evidence, build_report | 인시던트와 개별 근거의 실제 범위 | 인시던트 범위와 별도 spec/근거 대상 일치 검증 필요 |
 | query_audit | 행의 cluster·namespace·kind | cluster 문자열 접두사 검사만 존재 |
 | get/set_screen_state | 현재 tab와 open 주소의 실제 cluster·namespace, 선언된 키 | scope 예외, open은 `wake://` 접두사만 검사 |
-| propose_action | target와 incident·option이 가리키는 동일 객체 | 요청 target와 선택한 incident option의 동일성 재검증 필요 |
+| propose_action | target와 incident·option이 가리키는 동일 객체 | 인시던트 클러스터와 후보 계획 대상(kind·namespace·name)이 target과 다르면 계획을 만들기 전 `invalid_request`(`approvals.cjs` propose). UID·resourceVersion 결합은 미완료 |
 
 ## MCP·HTTP와 데스크톱 경계
 
@@ -214,7 +214,7 @@ Wake의 읽기·제안·사람 승인과 자격·자료 전송 경계를 정한�
 ### SEC-018 IPC·외부 도구 창·사람의 터미널 <a id="SEC-018"></a>
 
 - 목표: 입력: 외부 tab·subframe·가짜 owner·종료된 창에서 민감 IPC를 호출한다 → 기대: 외부 도구 페이지와 subframe은 내부 서비스·승인·자격·터미널을 호출하지 못한다. renderer는 sandbox, contextIsolation=true, nodeIntegration=false다. 실제 sender의 창·탭·문서 수명이 바뀌면 이전 owner는 무효다. 터미널은 사람이 고른 context·namespace·리소스와 전용 kubeconfig로 열며 AI 화면 조작으로 실행하지 않는다. 일반 iframe 차단과 민감 서비스의 사람 승인 권한은 별도 검사한다. → 실패: 외부 sender가 승인·자격·터미널을 실행하거나 바뀐 owner가 유효하면 실패.
-- 현재: 부분. `kit/desktop/main.cjs:250–277,440,764–781`에 owner·sender·sandbox 검사가 있다. `apps/wake/desktop/services.cjs:575–579`의 승인·AI 서버 설정·client 추가는 별도 sender 제한 없이 전달된다. 전역 IPC가 내부 앱 페이지를 허용하므로 민감 서비스마다 필요한 권한을 따로 입증해야 한다. 실제 악성 페이지 접근을 재현한 주장은 아니다.
+- 현재: 부분. `kit/desktop/main.cjs`에 owner·sender·sandbox 검사가 있다. 클러스터에 쓰는 선언 명령(`apps/wake/commands.json` confirm: 에이전트 설치·권한 부여)은 메인 프로세스의 OS 확인 창(실제 명령 줄과 환경)에서 사람이 실행을 누른 뒤에만 시작하며, 화면이 터미널에 Enter를 써서 대신 답하던 길은 지웠다. 앱 문지기(`services.cjs` hooks.commandGuard)가 등록된 context, 앱에 든 차트 또는 사람이 메인 프로세스 폴더 창에서 고른 차트만 허락하고 KUBECONFIG를 Wake가 읽는 파일로 정한다. 승인 허용도 같은 OS 확인 창을 거친다([SEC-006](#SEC-006)). AI 서버 설정·client 추가는 별도 sender 제한 없이 전달된다. 전역 IPC가 내부 앱 페이지를 허용하므로 민감 서비스마다 필요한 권한을 따로 입증해야 한다. 실제 악성 페이지 접근을 재현한 주장은 아니다.
 - 차이: T-SEC-18. U-36·U-39·U-43에서 민감 서비스의 신뢰된 sender와 일회 사람 결정을 연결하고 실제 Electron에서 우회를 검사한다. 대상 kit/desktop/main.cjs, services.cjs, kit/desktop/terminal.cjs; 자동 확인 `node --test kit/desktop/main-service-owner.test.cjs` 및 `node kit/tools/check-ipc.mjs`; 운영 검사 실제 sender·터미널; 선행 U-36·39·43.
 - 고정 장치: `node kit/tools/check-ipc.mjs`의 IPC 노출·호출 검사
 - 출처: D00466, D00473, D01050
@@ -314,3 +314,22 @@ Wake의 읽기·제안·사람 승인과 자격·자료 전송 경계를 정한�
 - 패키징 실행(2026-11-18, [작업](tasks.md#package-run)): electron-builder 26.0.12 설치, 번들 ID `io.github.woonyong-choi.wake`. 서명 자격이 없는 컴퓨터에서는 `package.mjs --unsigned`만 빌드한다(서명·공증 안 함, 같은 퓨즈·asar·무결성, ad hoc 재봉인). 자격도 `--unsigned`도 없으면 빌드를 거절한다. 만든 앱은 퓨즈(`010011001`), app.asar 내용(허용 목록·생성 package.json·런타임 모듈 밖 항목 0), unpacked window.node·node-pty를 다시 읽어 확인하고, 실제 실행에서 첫 실행 화면과 터미널(node-pty)이 동작했다. 런타임 파일에 Electron-as-Node 사용 0(terminal-credential.cjs 포함).
 - 에이전트 이미지(K-15): `apps/wake/agent` 이미지를 로컬에서 linux/amd64·arm64로 빌드했고 values.yaml은 저장소 `ghcr.io/woonyong-choi/wake-agent`를 가리킨다. digest는 공개 뒤에 채우며, 그 전에는 image-state가 설치를 거절한다.
 - 남은 차단: Developer ID 서명·공증 자격, 에이전트 이미지 공개와 digest(write:packages 필요), LICENSE 변호사 검토(한·영 초안 완성, 준거법 [대한민국 법] 확인 필요).
+
+## 독립 검토 보안 수정(2026-11-19)
+
+[작업의 독립 검토 보안 지적](tasks.md#independent-review-security)에서 고친 현재 상태다.
+
+- 메인 프로세스 확인 창(`kit/desktop/main.cjs` confirmNative, services `create({ confirm })`): 문구는 locale 키, 취소가 첫 단추이자 기본(Return·Escape·초점 단추가 모두 취소)이라 다른 앱에 치던 키 입력으로 허용되지 않는다. 승인 확인 창은 클러스터·대상·경로(`wake.inc.route.*` 말)·바뀌는 값(컨테이너 자원은 `limits.memory (컨테이너 <이름>): 64Mi -> 128Mi`)·승인 ID를 보이고, 계획 해시는 보이지 않고 확인 전후 대조에만 쓴다. 개발 빌드의 뒤 검수 실행(`KIT_BACKGROUND=1`, `KIT_CONFIRM_LOG=<파일>`)은 창을 띄우지 않고 보일 글을 그 파일에 남기며 `<파일>.answer`가 `run`일 때만 허용한다(패키지 앱·일반 실행은 언제나 OS 창).
+- 승인([SEC-006](#SEC-006)): 인시던트 후보 계획은 같은 클러스터·대상일 때만 만들고, 허용은 그 승인 ID·계획 해시의 메인 프로세스 확인 뒤에만 기록한다.
+- 클러스터에 쓰는 선언 명령([SEC-018](#SEC-018)): OS 확인 창(명령 줄·실행 환경) 뒤에만 실행, 등록된 context·승인된 차트·Wake가 읽는 KUBECONFIG만.
+- kubeconfig exec 동의: 실행 파일(실제 경로·dev·ino·크기·mtime)·인자·kubeconfig exec.env(이름·값)에 묶는다. 화면·동의 파일에는 명령 경로, 가린 인자(`argsPreview`), 환경 변수 이름만 남는다. ExecCredential의 PEM 인증서·키는 PEM 그대로 TLS에 쓴다(전에는 base64로 잘못 풀어 exec 인증서 연결이 실패).
+- 공개 정책([SEC-011](#SEC-011)): `discloseText`·`discloseObject`가 로그 IPC와 도구 `read_logs`·로그 근거에 적용된다. 인시던트 허브 cite 입구는 미연결.
+- 실제 확인(2026-11-19, 버리는 kind `wake-sec`, 격리 userData, 뒤 실행): 화면 문서의 `approval.decide`는 메인 프로세스 확인을 거쳤고 답하지 않으면 `not_confirmed`로 대기 유지, 화면이 고른 KUBECONFIG는 Wake가 읽는 파일로 바뀌어 확인 창에 보였으며 취소 시 Helm 실행 0, exec.env를 바꾸자 동의를 다시 물었다. 처음 띄운 실제 OS 확인 창이 사람의 다른 작업 앞에 떠서 몇 번 허용으로 끝났고(승인 단추가 첫 단추였음), 이를 고쳐 취소를 첫·기본 단추로 바꿨다.
+
+### 재검토 반영(2026-11-19)
+
+- 에이전트 설치 확인과 실행의 결합: 확인 창이 경로만 보이고 Helm이 나중에 그 내용을 읽던 공백을 닫았다. 메인 프로세스가 확인 전에 차트를 `userData/agent-install/<id>/chart`로 복사(일반 파일·폴더만, 링크·특수 파일은 거절, 내용 sha256)하고, 확인한 context·cluster·user 하나만 든 kubeconfig(파일 참조는 내용으로, 0600, 폴더 0700)를 쓰며, Helm은 실제 절대 경로(root나 사용자 소유, 그룹·다른 사람 쓰기 없음)로 실행한다. 확인 창은 context·서버·사용자와 자격 종류·차트 다이제스트·명령 줄·KUBECONFIG를 보인다. 실행이 끝나거나 취소·실패하면 폴더를 지우고, 앱 시작 때 남은 폴더도 지운다. 키체인 참조 자격(tokenRef 등)은 Helm이 읽지 못해 `AGENT_INSTALL_CREDENTIAL_UNSUPPORTED`로 거절한다.
+- 일반 로컬 터미널(`pty:open` local, `pty:write`): 사람이 연 자기 대화형 셸이며 macOS 터미널 앱과 같은 권한이다. 셸 문서의 main frame만 열고 쓸 수 있고(`main.cjs` handle의 shellOf·mainFrame), 앱 페이지 문서·도구 탭·AI 도구·외부 클라이언트에는 이 통로가 없다(preload-page에 pty 없음, 화면 상태 도구는 터미널을 다루지 않음). 셸 문서는 앱 자신의 코드라 모든 IPC를 이미 가지므로 그 키 입력을 막는 것은 새 경계가 아니다. 확인 창은 Wake가 사람 대신 시작하는 선언 명령(클러스터 쓰기)에만 적용한다.
+- 승인 요청: 인시던트는 그 후보(option)와 짝으로만 받고, 인시던트 대상이 요청 target과 같아야 하며, 인시던트가 아는 UID가 지금 그 이름의 객체 UID여야 저장한다. 일반 변경은 값마다 before가 있어야 하고 원본의 지금 값과 같아야 하며, 계획 명령은 클러스터 context를 이름으로 단다(UID·before의 JSON patch test 포함).
+- 마스킹: Kubernetes bootstrap token(`[a-z0-9]{6}.[a-z0-9]{16}`), JWT, GitHub(`ghp_`·`github_pat_`), GitLab, Slack, AWS, Anthropic·OpenAI, Google API, Stripe, npm, Grafana, Hugging Face 토큰을 모양으로 가린다. UUID(숫자만인 묶음 포함), sha256 다이제스트, 64자 hex, resourceVersion은 규칙 전에 따로 두었다가 그대로 돌려놓는다. 카드 번호는 Luhn이 맞는 16자리만 가린다.
+- 3차 검토 반영: 에이전트 설치의 Helm은 `env -i`로 PATH·HOME·KUBECONFIG만 받고(로그인 셸 시작 파일의 `HELM_KUBEAPISERVER`·`HELM_KUBETOKEN`·KUBE* 값 차단), exec 인증 사용자는 Wake의 exec 동의를 거친 플러그인 실행 결과를 사본 kubeconfig에 고정 자격으로 넣는다(동의 없음 `EXEC_CONSENT_REQUIRED`, 실패 `EXEC_CREDENTIAL_FAILED`, Helm은 플러그인을 실행하지 않음). 마스킹은 자격 문맥(플래그·헤더·Bearer·key=value·비밀 JSON 키)을 먼저 적용하고 그 뒤에 식별자를 따로 두며, Google OAuth `ya29.`를 가리고, `image` 필드 값·`repo:tag`·`@sha256` 이미지 참조와 trace/span/request id 이름표가 붙은 값은 그대로 둔다. 일반 제안 값은 원본 필드 형(숫자·불리언·글)으로 JSON patch test·replace에 나가고 다른 형은 거절한다.

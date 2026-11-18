@@ -456,7 +456,7 @@ function discoverTerminalApps(api) {
   appearanceDiscovery.set(api, discovery);
   return discovery;
 }
-/* 에이전트 설치 권한이 없을 때의 필요한 권한 시트: 설치할 수 있는 사람이 실행할 설치 명령(복사·Slack), 직접 적용은 터미널에서 Enter를 기다린 뒤 실행(commands.json confirm) */
+/* 에이전트 설치 권한이 없을 때의 필요한 권한 시트: 설치할 수 있는 사람이 실행할 설치 명령(복사·Slack), 직접 적용은 데스크톱의 OS 확인 창에 사람이 답한 뒤 실행(commands.json confirm) */
 function installSheet(arg, st) {
   const slack = !!(st?.settings?.['wake.connections'] || {})['notify-slack'];
   return { title: 'wake.perm.title', size: 'lg', description: 'wake.flow.c.installForbidden',

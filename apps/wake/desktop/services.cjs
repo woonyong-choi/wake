@@ -36,7 +36,7 @@ const { execFile } = require('node:child_process');
 const { createHash } = require('node:crypto');
 const { kubeconfigPaths, loadKubeconfig, contextList, watchFiles, yaml, yamlError } = require('./kubeconfig.cjs');
 const { createProviderConnections } = require('./provider-connections.cjs');
-const { createClient, execInvocation, execConsentKey } = require('./k8s.cjs');
+const { createClient, execInvocation, execConsentKey, execConsentView } = require('./k8s.cjs');
 const { createExecConsent } = require('./exec-consent.cjs');
 const { createTerminalCredentials } = require('./terminal-credential.cjs');
 const { createTools } = require('./tools.cjs');
@@ -54,6 +54,8 @@ const { createHubReads } = require('./reads/index.cjs');
 const { createAgentHeartbeat } = require('./agent-heartbeat.cjs');
 const { createHub } = require('./hub.cjs');
 const { createKubeWatch } = require('./kube-watch.cjs');
+const { agentInstallGuard, agentImageState } = require('./agent-install-charts/image-state.cjs');
+const { discloseText } = require('../data/mask.js');
 /* 화면으로 보내는 원본: managedFields는 따로(YAML 보기에서 켤 때만), Secret 값·값을 담는 주석은 어떤 경우에도 보내지 않음(kube-sanitize.cjs) */
 const { sanitize } = require('./kube-sanitize.cjs');
 const { slim: slimEvent } = require('./reads/events.cjs');
@@ -260,7 +262,21 @@ const GITOPS_KINDS = Object.freeze({
 const GITOPS_PATH_KIND = Object.freeze(Object.fromEntries(Object.entries(GITOPS_KINDS).map(([kind, def]) => [def.path(''), kind])));
 const GITOPS_HOLD_MS = 120_000, GITOPS_MEMO_MS = 60_000;
 
-function create({ app, emit, emitTo = () => {}, safeStorage, userData, hooks = {}, remoteTerminalConfig, openExternal = openGcpConsoleInChrome, openPath = p => require('electron').shell.openPath(p) }) {
+/* Helm의 실제 절대 경로: PATH와 흔한 설치 폴더에서 찾고 실제 파일로 풀어, root나 이 사용자 소유이고 그룹·다른 사람이 쓸 수 없을 때만. 없으면 null */
+function defaultHelmPath() {
+  const { findCommand, execPath } = require('./k8s.cjs');
+  const found = findCommand('helm', { ...process.env, PATH: execPath() });
+  if (!found) return null;
+  try {
+    const real = fs.realpathSync(found), st = fs.statSync(real);
+    return st.isFile() && (st.uid === 0 || st.uid === process.geteuid()) && !(st.mode & 0o022) ? real : null;
+  } catch { return null; }
+}
+
+/* confirm({ message, action, detail, vars }) -> Promise<bool>: kit 메인 프로세스가 직접 띄우는 OS 확인 창(화면 문서는 답할 수 없음). 없으면 언제나 아니오 */
+function create({ app, emit, emitTo = () => {}, safeStorage, userData, hooks = {}, remoteTerminalConfig, openExternal = openGcpConsoleInChrome, openPath = p => require('electron').shell.openPath(p), confirm = async () => false,
+  pickFolder = () => { const { dialog, BrowserWindow } = require('electron'); return dialog.showOpenDialog(BrowserWindow.getFocusedWindow(), { properties: ['openDirectory'] }); },
+  helmPath = defaultHelmPath }) {
   /* Loki·Tempo 질의 다리의 짧은 확인 재사용은 공유 Pod watch 캐시가 같은 Pod UID를 보일 때만(캐시가 없으면 undefined: 요청마다 확인) */
   const keychain = createKeychain({ safeStorage, userData }), tools = createTools({ podIdentity: (id, ns, name) => {
     const pod = kubeWatch?.object(id, 'pods', ns, name);
@@ -277,15 +293,15 @@ function create({ app, emit, emitTo = () => {}, safeStorage, userData, hooks = {
   const connectionsState = () => (connectionsError ? { state: 'error', code: connectionsError.code, repair: connectionsError.repair } : { state: 'ready' });
   const paths = () => kubeconfigPaths(process.env, savedFiles());
   const kc = () => loadKubeconfig(paths());
-  /* exec 인증 명령: 사람이 그 명령·인자에 동의한 것만 실행(exec-consent.cjs, k8s.cjs needs_consent) */
+  /* exec 인증 명령: 사람이 그 실행 파일·인자·kubeconfig 환경에 동의한 것만 실행(exec-consent.cjs, k8s.cjs needs_consent) */
   const execConsent = createExecConsent({ userData });
   const opts = { keychain, execConsent };
-  /* 처음 쓰는 exec 명령의 표시(kube.read 행): 찾은 실제 경로와 인자, 동의 여부. 명령을 찾지 못하면 표시하지 않는다(연결 확인이 noAuthTool) */
+  /* 처음 쓰는 exec 명령의 표시(kube.read 행): 찾은 실제 경로, 가린 인자, 환경 변수 이름(값 없음), 동의 여부. 명령을 찾지 못하면 표시하지 않는다(연결 확인이 noAuthTool) */
   const execConsentOf = user => {
     if (!user?.exec) return undefined;
     try {
-      const { cmd, args } = execInvocation(user.exec, process.env);
-      return { state: execConsent.granted(execConsentKey(cmd, args)) ? 'granted' : 'needed', command: cmd, args: [...args] };
+      const invocation = execInvocation(user.exec, process.env);
+      return { state: execConsent.granted(execConsentKey(invocation)) ? 'granted' : 'needed', ...execConsentView(invocation) };
     } catch { return undefined; }
   };
   /* 터미널 kubectl이 키체인 자격을 쓰는 exec 길(terminal-credential.cjs): 0700 폴더의 0600 ExecCredential 파일, 앱 종료 때 삭제 */
@@ -441,13 +457,94 @@ function create({ app, emit, emitTo = () => {}, safeStorage, userData, hooks = {
   /* 인시던트·AI 허브(hub.cjs): 감지, 작업면, 근거 스냅샷, 감사 기록, 승인, 도구 층(MCP·HTTP API), 내장 AI */
   /* 읽기는 화면 읽기 서비스와 같은 층(hubReads.cluster). 처음 부를 때 만든다; 외부 AI 경로를 켜 둔 적이 있으면 앱을 켤 때 바로(서버가 다시 열림) */
   let hubStarted = null;
+  /* 승인 허용의 사람 확인(approvals.cjs decide): 그 승인 ID·대상·경로·바뀌는 값을 메인 프로세스의 OS 확인 창에 보이고 허용을 누를 때만 true.
+     계획 해시는 보이지 않고 approvals가 확인 전후로 대조한다. 컨테이너 자원 값은 "limits.memory (컨테이너 app): 64Mi -> 128Mi"(그 index의 이름 가드) */
+  const containerOf = (p, guards) => { const m = /^(.*\b(?:initContainers|containers)\[\d+\])\.resources\.(.+)$/.exec(String(p));
+    const guard = m && guards.find(g => g?.path === m[1] + '.name'); return guard ? { field: m[2], container: String(guard.value) } : null; };
+  const changeLine = (v, guards) => { const c = containerOf(v.path, guards), before = String(v.before ?? ''), after = String(v.after ?? '');
+    return c ? { $t: 'wake.approval.confirm.containerChange', vars: { ...c, before, after } } : { $t: 'wake.approval.confirm.change', vars: { path: String(v.path), before, after } }; };
+  const approvalConfirm = shown => confirm({ message: 'wake.approval.confirm.message', action: 'wake.approval.confirm.allow', detail: 'wake.approval.confirm.detail',
+    vars: { title: String(shown.title ?? ''), cluster: shown.cluster, target: [shown.target?.namespace, shown.target?.kind, shown.target?.name].filter(Boolean).join('/'),
+      route: { $t: `wake.inc.route.${shown.route}` }, changes: shown.values.length ? shown.values.map(v => changeLine(v, shown.guards)) : [String(shown.command ?? '')], id: shown.id } });
   const hub = () => (hubStarted ??= createHub({ userData, emit, sources: hubReads.cluster(), contexts: () => contextList(kc()).map(c => c.id), version: app?.getVersion?.(),
     secret: (method, target) => { const ref = conns().secrets?.[`${method}:${target}`]; return ref ? keychain.get(ref) ?? null : null; },
-    cliConnected: id => !!conns().aiCli?.[id] }));
+    cliConnected: id => !!conns().aiCli?.[id], confirm: approvalConfirm }));
   if (fs.existsSync(path.join(userData, 'hub', 'ai-server.json'))) hub().catch(() => {});
-  /* 터미널이 사람을 위해 실행하는 선언 명령의 문지기: 공개 이미지가 없는 차트로는 에이전트 설치(Helm)를 실행하지 않는다 */
-  hooks.commandGuard = require('./agent-install-charts/image-state.cjs').agentInstallGuard;
+  /* 터미널이 사람을 위해 실행하는 선언 명령의 문지기(kit main hooks.commandGuard, 화면의 판단과 무관):
+     공개 이미지가 없는 차트로는 에이전트 설치(Helm)를 실행하지 않는다. 클러스터에 쓰는 명령(에이전트 설치·권한 부여)은 등록된 context에만,
+     에이전트 차트는 앱에 든 차트나 사람이 메인 프로세스 폴더 창(agent.pickChart)에서 고른 차트만, KUBECONFIG는 Wake가 읽는 파일(화면이 보낸 값 대신) */
+  const bundledChart = path.join(app?.isPackaged ? __dirname.replace(/app\.asar(?=[\\/]|$)/, 'app.asar.unpacked') : __dirname, 'agent-install-charts', 'wake-agent-only');
+  const realOf = p => { try { return fs.realpathSync(p); } catch { return null; } };
+  const pickedCharts = new Set();
+  hooks.commandGuard = (id, args) => {
+    const refused = agentInstallGuard(id, args);
+    if (refused) return refused;
+    const context = id === 'agent.install' ? args.cluster : id.startsWith('perm.grant.') ? args.context : null;
+    if (context == null) return null;
+    if (!kc().contexts.has(context)) return 'COMMAND_CONTEXT_UNREGISTERED';
+    if (id !== 'agent.install') return { env: { KUBECONFIG: paths().join(path.delimiter) } };
+    const chart = realOf(args.chart);
+    if (!chart || (chart !== realOf(bundledChart) && !pickedCharts.has(chart))) return 'AGENT_CHART_UNAPPROVED';
+    return prepareAgentInstall(context, chart);
+  };
+  /* 에이전트 설치 한 번에 쓸 것을 메인 프로세스가 고정한다(확인 창이 보인 것이 실행되는 것): 차트의 사본(내용 다이제스트, 링크·특수 파일은 거절),
+     확인한 context·cluster·user 하나만 든 kubeconfig(파일 참조는 내용으로 넣음, 0600, userData/agent-install/<id> 0700), Helm의 실제 절대 경로.
+     키체인 참조 자격(tokenRef 등)은 Helm이 읽지 못해 거절, exec 사용자는 동의한 플러그인을 Wake가 실행해 고정 자격으로(동의 없으면 EXEC_CONSENT_REQUIRED).
+     Helm은 허용 목록 환경(env -i: PATH·HOME·KUBECONFIG)으로만 실행해 시작 파일의 HELM_*·KUBE* 값이 끼어들지 않는다. 실행이 끝나거나 취소되면 cleanup이 폴더를 지운다 */
+  /* 앱이 실행 도중 끝나 지우지 못한 지난 설치 폴더는 시작할 때 지운다 */
+  try { fs.rmSync(path.join(userData, 'agent-install'), { recursive: true, force: true }); } catch { /* 다음 설치가 새 폴더를 쓴다 */ }
+  function prepareAgentInstall(context, chart) {
+    const k = kc(), ctx = k.contexts.get(context), cl = k.clusters.get(ctx?.cluster), user = k.users.get(ctx?.user);
+    if (!ctx || !cl?.server || !user) return 'COMMAND_CONTEXT_UNREGISTERED';
+    if (user.tokenRef || user.clientKeyRef || user.passwordRef) return 'AGENT_INSTALL_CREDENTIAL_UNSUPPORTED';
+    /* exec 인증 사용자: 사람이 동의한 그 실행 파일·인자·환경일 때만 Wake가 한 번 실행해 받은 자격을 고정 값으로 넣는다(Helm이 플러그인을 실행하지 않음) */
+    let resolved = null;
+    if (user.exec) {
+      let invocation;
+      try { invocation = execInvocation(user.exec, process.env); } catch { return 'EXEC_CREDENTIAL_FAILED'; }
+      if (!execConsent.granted(execConsentKey(invocation))) return 'EXEC_CONSENT_REQUIRED';
+      try {
+        const st = JSON.parse(require('node:child_process').execFileSync(invocation.cmd, invocation.args, { env: invocation.env, timeout: 30000, maxBuffer: 1 << 20, stdio: ['ignore', 'pipe', 'ignore'] }).toString()).status || {};
+        resolved = st.token ? { token: st.token } : st.clientCertificateData && st.clientKeyData
+          ? { 'client-certificate-data': Buffer.from(st.clientCertificateData).toString('base64'), 'client-key-data': Buffer.from(st.clientKeyData).toString('base64') } : null;
+      } catch { resolved = null; }
+      if (!resolved) return 'EXEC_CREDENTIAL_FAILED';
+    }
+    const helm = helmPath();
+    if (!helm) return 'HELM_NOT_FOUND';
+    const root = path.join(userData, 'agent-install');
+    const dir = path.join(root, require('node:crypto').randomUUID());
+    const cleanup = () => fs.rmSync(dir, { recursive: true, force: true });
+    try {
+      fs.mkdirSync(root, { recursive: true, mode: 0o700 }); fs.mkdirSync(dir, { mode: 0o700 });
+      const snapshot = path.join(dir, 'chart'), digest = createHash('sha256');
+      const copy = (from, to, rel) => {
+        fs.mkdirSync(to, { mode: 0o700 });
+        for (const name of fs.readdirSync(from).sort()) {
+          const src = path.join(from, name), dst = path.join(to, name), st = fs.lstatSync(src), r = rel ? `${rel}/${name}` : name;
+          if (st.isDirectory()) { digest.update(`d ${r}\n`); copy(src, dst, r); }
+          else if (st.isFile()) { const bytes = fs.readFileSync(src); digest.update(`f ${r} ${bytes.length}\n`).update(bytes); fs.writeFileSync(dst, bytes, { mode: 0o600, flag: 'wx' }); }
+          else throw Object.assign(new Error('chart entry is not a plain file'), { code: 'AGENT_CHART_UNAPPROVED' });
+        }
+      };
+      copy(chart, snapshot, '');
+      if (agentImageState(snapshot).published !== true) { cleanup(); return 'AGENT_IMAGE_UNPUBLISHED'; }
+      const inline = (o, pairs) => { const x = { ...o }; delete x.file; for (const [file, data] of pairs) if (x[file]) { x[data] = fs.readFileSync(x[file]).toString('base64'); delete x[file]; } return x; };
+      const clusterEntry = inline(cl, [['certificate-authority', 'certificate-authority-data']]);
+      const userEntry = resolved ?? inline(user, [['client-certificate', 'client-certificate-data'], ['client-key', 'client-key-data']]);
+      if (userEntry.tokenFile) { userEntry.token = fs.readFileSync(userEntry.tokenFile, 'utf8').trim(); delete userEntry.tokenFile; }
+      const config = path.join(dir, 'kubeconfig');
+      fs.writeFileSync(config, yaml.dump({ apiVersion: 'v1', kind: 'Config', 'current-context': context,
+        clusters: [{ name: ctx.cluster, cluster: clusterEntry }], users: [{ name: ctx.user, user: userEntry }],
+        contexts: [{ name: context, context: { cluster: ctx.cluster, user: ctx.user, ...(ctx.namespace ? { namespace: ctx.namespace } : {}) } }] }), { mode: 0o600, flag: 'wx' });
+      const credential = user.exec ? `exec ${user.exec.command}` : userEntry['client-certificate-data'] ? 'client-certificate' : userEntry.token ? 'token' : userEntry.username ? 'basic' : 'none';
+      return { env: { KUBECONFIG: config }, args: { chart: snapshot }, program: helm, isolate: true, cleanup,
+        detail: { $t: 'wake.agent.install.confirm', vars: { context, server: cl.server, user: ctx.user, credential, digest: digest.digest('hex') } } };
+    } catch (error) { cleanup(); return error?.code === 'AGENT_CHART_UNAPPROVED' ? 'AGENT_CHART_UNAPPROVED' : 'AGENT_INSTALL_PREPARE_FAILED'; }
+  }
   const TOOL_OPS = new Set(['reach', 'session', 'issue', 'verify', 'setToken', 'forget', 'disconnect', 'home', 'identity', 'cancel']);
+  /* 로그 글은 공유 공개 정책(data/mask.js discloseText)을 지나야 IPC를 건넌다 */
+  const disclosed = result => (typeof result?.text === 'string' ? { ...result, text: discloseText(result.text).text } : result);
   async function readPagePodLogs(args, from, owner, read) {
     const { id, ns, name } = args || {};
     if (!from?.mainFrame || owner?.kind !== 'page' || !owner.isCurrent() || typeof id !== 'string') return { error: 'identity_changed' };
@@ -465,7 +562,7 @@ function create({ app, emit, emitTo = () => {}, safeStorage, userData, hooks = {
     const unsubscribe = owner.subscribe(() => controller.abort());
     try {
       const result = await read(logClient(id), args, controller.signal);
-      return owner.isCurrent() ? result : { error: 'cancelled' };
+      return owner.isCurrent() ? disclosed(result) : { error: 'cancelled' };
     } catch (error) {
       if (controller.signal.aborted) return { error: 'cancelled' };
       if ([401, 403].includes(error?.status)) return { error: 'forbidden' };
@@ -535,8 +632,9 @@ function create({ app, emit, emitTo = () => {}, safeStorage, userData, hooks = {
       if (!user?.exec) return { error: 'not_exec' };
       let invocation;
       try { invocation = execInvocation(user.exec, process.env); } catch (error) { return { error: error?.kind || 'noAuthTool', command: user.exec.command }; }
-      execConsent.grant(execConsentKey(invocation.cmd, invocation.args), { command: invocation.cmd, args: invocation.args });
-      return { state: 'granted', command: invocation.cmd, args: [...invocation.args] };
+      const view = execConsentView(invocation);
+      execConsent.grant(execConsentKey(invocation), view);
+      return { state: 'granted', ...view };
     },
     /* 연결 설정 파일 권한 고치기(설정 › 클러스터의 고치기, 셸 문서만, confirm: true일 때만): 지금 오류가 권한이면 폴더·파일 권한을 고치고 다시 읽는다.
        내용 오류·링크·다른 계정의 파일은 고치지 않고 그 코드로 거절 */
@@ -671,7 +769,7 @@ function create({ app, emit, emitTo = () => {}, safeStorage, userData, hooks = {
     /* 로그(읽기만): 컨테이너, 이전 컨테이너, 마지막 줄 수, 시각 */
     'kube.logs': async (args, from, owner) => {
       const { id, ns, name, container, previous, tail, window } = args;
-      if (!window) return providers.client(id).request('GET', `/api/v1/namespaces/${encodeURIComponent(ns)}/pods/${encodeURIComponent(name)}/log?timestamps=true&tailLines=${Math.min(+tail || 500, 5000)}${container ? '&container=' + encodeURIComponent(container) : ''}${previous ? '&previous=true' : ''}`, null, { raw: true });
+      if (!window) return discloseText(await providers.client(id).request('GET', `/api/v1/namespaces/${encodeURIComponent(ns)}/pods/${encodeURIComponent(name)}/log?timestamps=true&tailLines=${Math.min(+tail || 500, 5000)}${container ? '&container=' + encodeURIComponent(container) : ''}${previous ? '&previous=true' : ''}`, null, { raw: true })).text;
       return readPagePodLogs(args, from, owner, (client, request, signal) => readPodLogWindow(client, request, signal));
     },
     'loki.logs': (args, from, owner) => readPagePodLogs(args, from, owner, (client, request, signal) =>
@@ -722,16 +820,18 @@ function create({ app, emit, emitTo = () => {}, safeStorage, userData, hooks = {
     /* 에이전트 설치 준비(읽기만): Helm이 있는지, 차트 폴더가 있는지(상대 경로는 터미널 작업 폴더인 홈 기준) */
     /* 이미지 상태(agent-install-charts/image-state.cjs): 공개 이미지가 없으면 agent_image_unpublished로 설치를 멈춘다. 패키지 앱은 app.asar.unpacked의 차트(Helm이 읽을 실제 파일) */
     'agent.prep': ({ chart } = {}) => {
-      const bundled = path.join(app?.isPackaged ? __dirname.replace(/app\.asar(?=[\\/]|$)/, 'app.asar.unpacked') : __dirname, 'agent-install-charts', 'wake-agent-only');
-      const abs = chart ? path.resolve(os.homedir(), String(chart)) : bundled;
+      const abs = chart ? path.resolve(os.homedir(), String(chart)) : bundledChart;
       return { helm: !!require('./k8s.cjs').findCommand('helm', { ...process.env, PATH: require('./k8s.cjs').execPath() }), chart: abs, shown: abs.replace(os.homedir(), '~'), exists: fs.existsSync(path.join(abs, 'Chart.yaml')),
         image: require('./agent-install-charts/image-state.cjs').agentImageState(abs) };
     },
     'agent.heartbeat': args => agentHeartbeat.read(args),
+    /* 사람이 메인 프로세스의 폴더 창에서 고른 차트: 에이전트 설치 문지기가 이 실행 동안 허락하는 차트로 기억한다 */
     'agent.pickChart': async () => {
-      const { dialog, BrowserWindow } = require('electron');
-      const r = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow(), { properties: ['openDirectory'] });
-      return r.canceled || !r.filePaths[0] ? null : { path: r.filePaths[0] };
+      const r = await pickFolder();
+      if (r.canceled || !r.filePaths[0]) return null;
+      const real = realOf(r.filePaths[0]);
+      if (real) pickedCharts.add(real);
+      return { path: r.filePaths[0] };
     },
     'agent.status': async args => {
       const identity = { contextId: null, release: 'wake-agent', namespace: 'wake-system', kind: 'DaemonSet', name: 'wake-agent', uid: null };

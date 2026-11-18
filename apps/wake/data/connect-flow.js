@@ -242,15 +242,14 @@ export function createFlows(env) {
     const spec = specOf(line);
     if (!spec) { f.output = ''; f.refused = true; return { exit: null, error: 'TERMINAL_COMMAND_REJECTED' }; }
     const term = env.terminal(); f.output = ''; f.lastOut = Date.now(); f.waiting = false; f.cmd = true;
-    /* 클러스터에 쓰는 명령(confirm)은 터미널에서 Enter를 기다린다: 그동안은 사람이 할 차례라 출력 없음을 세지 않고, Enter를 누른 때부터 센다 */
+    /* 클러스터에 쓰는 명령(confirm)은 데스크톱의 OS 확인 창에 사람이 답한 뒤 시작한다: 그동안은 사람이 할 차례라 출력 없음을 세지 않고, 첫 출력부터 센다 */
     let confirming = spec.confirm === true;
     const quiet = setInterval(() => {
       if (!confirming && f.cause !== 'quiet' && Date.now() - f.lastOut > LIMITS.quietMs && !f.waiting) { f.cause = 'quiet'; f.actions = ['cancel', 'wait']; env.redraw(); }
     }, 1000);
     const hard = setTimeout(() => { f.timedOut = true; term.cancel(RUN); }, limit);
     const r = await term.run({ key: RUN, title: env.termTitle?.(f) || { raw: f.key }, command: spec, env: env.runEnv(),
-      onInput: d => { if (confirming && /[\r\n]/.test(d)) { confirming = false; f.lastOut = Date.now(); } },
-      onOutput: d => { f.output = (f.output + d).slice(-16384); f.lastOut = Date.now(); if (f.cause === 'quiet') { f.cause = null; f.actions = []; env.redraw(); } } });
+      onOutput: d => { confirming = false; f.output = (f.output + d).slice(-16384); f.lastOut = Date.now(); if (f.cause === 'quiet') { f.cause = null; f.actions = []; env.redraw(); } } });
     clearInterval(quiet); clearTimeout(hard); f.cmd = false;
     if (f.cause === 'quiet') { f.cause = null; f.actions = []; }
     env.audit(line, r.exit);
@@ -439,7 +438,7 @@ export function createFlows(env) {
     },
     /* 클러스터: 접속 단계의 연결 확인이 함께 칠함. 에이전트: 그 namespace에 DaemonSet을 만들 수 있는지(SelfSubjectAccessReview) */
     /* 에이전트: 먼저 차트의 이미지(공개되지 않았으면 권한을 묻지도, 설치 명령을 복사하게 하지도 않음), 다음 그 namespace에 DaemonSet을 만들 수 있는지.
-       권한이 없으면 필요한 권한 시트(설치 명령·Slack·직접 적용: 터미널이 Enter를 기다림)로 */
+       권한이 없으면 필요한 권한 시트(설치 명령·Slack·직접 적용: 데스크톱 OS 확인 창 뒤 실행)로 */
     perm: async (f, m) => {
       if (!m.agent) return true;
       const p = await env.service('agent.prep', { chart: f.chart }).catch(() => null);

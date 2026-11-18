@@ -1418,7 +1418,7 @@ test('agent_install_permission_sheet_shows_the_install_command_and_a_direct_appl
   const apply = def.extra.find(e => e.action === 'wake.perm.apply');
   assert.ok(apply, 'a direct apply');
   assert.equal(apply.arg.command, line);
-  assert.equal(specOf(apply.arg.command)?.confirm, true, 'the direct apply waits for Enter in the terminal');
+  assert.equal(specOf(apply.arg.command)?.confirm, true, 'the direct apply waits for the desktop confirmation');
   assert.equal(def.submit.arg.value, line);
 });
 

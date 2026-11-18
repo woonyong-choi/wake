@@ -433,8 +433,8 @@ export function createTerminals({ doc, desktop, config, api, onExit, onState, ow
     showOutput: record => outputs.show(record),
     hide() { current = null; selected = null; for (const s of sessions.values()) s.host.classList.remove('on'); outputs.hide(); },
     /** run a command as its own process in the key's session; resolves with { exit } (exit null: ended by cancel) */
-    /* spec: { id, args, line, confirm }: the desktop runs only a command id the app declared, built from its arguments. A confirm command waits for
-       Enter in the terminal (the desktop wraps it); the words for that are the app line above the screen, and onInput sees what the person types */
+    /* spec: { id, args, line }: the desktop runs only a command id the app declared, built from its arguments. A command the app marks confirm
+       starts only after the person answers the desktop's own dialog (cancel: error TERMINAL_COMMAND_CANCELLED); onInput sees what the person types */
     async run(key, spec, { env = {}, onOutput, onInput } = {}) {
       if (!body) return { exit: null, error: 'unavailable' };
       if (lookup(key)?.mode === 'remote') return { exit: null, error: 'TERMINAL_SESSION_CONFLICT' };
@@ -446,8 +446,7 @@ export function createTerminals({ doc, desktop, config, api, onExit, onState, ow
       const exit = new Promise(res => { s.done = res; });
       s.term.onData(d => { onInput?.(d); desktop.invoke('pty:write', s.id, d); });
       s.term.onResize(({ cols, rows }) => desktop.invoke('pty:resize', s.id, cols, rows));
-      if (spec?.confirm) say(s, t('terminal.confirmRun'));
-      const r = await desktop.invoke('pty:run', { id: s.id, mode: 'local', command: spec.id, args: spec.args, env, confirmText: '⏎', cols: s.term.cols, rows: s.term.rows });
+      const r = await desktop.invoke('pty:run', { id: s.id, mode: 'local', command: spec.id, args: spec.args, env, cols: s.term.cols, rows: s.term.rows });
       if (r?.error) { say(s, t('terminal.openFailed')); return { exit: null, error: r.error, code: r.code || null }; }
       s.user = r.user || '';
       return { exit: await exit };

@@ -29,7 +29,8 @@ function nodeOf(lease, now) {
     state: age != null && age <= duration ? 'ok' : 'stale', at: Number.isFinite(renew) ? new Date(renew).toISOString() : null, ageSeconds: age,
     version: a[A + 'version'] || null, apiMs: num(a[A + 'api-ms']), dnsMs: num(a[A + 'dns-ms']), nodeReady: a[A + 'node-ready'] === '' || a[A + 'node-ready'] == null ? null : a[A + 'node-ready'] === 'true',
     objects: num(a[A + 'objects']), changesPerSec: num(a[A + 'changes-per-sec']), pods: num(a[A + 'pods']), podsNotReady: num(a[A + 'pods-not-ready']),
-    watch: a[A + 'watch'] ? a[A + 'watch'].split(',').filter(Boolean) : [], clusterId: a[A + 'cluster-id'] || null, samples: historySamples(a[A + 'history']) };
+    /* 에이전트가 맞춰진 감시를 따로 내면(watch-synced) 그것만, 옛 에이전트는 선언한 감시 */
+    watch: (a[A + 'watch-synced'] ?? a[A + 'watch'] ?? '').split(',').filter(Boolean), syncedAt: a[A + 'watch-synced-at'] || null, clusterId: a[A + 'cluster-id'] || null, samples: historySamples(a[A + 'history']) };
 }
 
 /** 묶인 역할의 규칙 -> 화면 줄 { resource, verbs, scope } */
@@ -67,7 +68,8 @@ function createAgentHeartbeat({ client, now = Date.now }) {
     const count = new Map(); for (const n of fresh) count.set(n.version, (count.get(n.version) ?? 0) + 1);
     result.version = [...count].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
     result.clusterId = fresh.find(n => n.clusterId)?.clusterId ?? null;
-    const watch = [...new Set(fresh.flatMap(n => n.watch))];
+    /* 클러스터의 감시는 수신 중인 모든 에이전트가 맞춰 둔 것만 */
+    const watch = fresh.length ? fresh.map(n => n.watch).reduce((all, w) => all.filter(k => w.includes(k))) : [];
     result.watch = watch.length ? watch : null;
     if (fresh.length) {
       const latest = Math.max(...fresh.map(n => Date.parse(n.at))), lat = fresh.map(n => n.apiMs).filter(v => v != null);

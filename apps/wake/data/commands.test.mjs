@@ -53,10 +53,10 @@ test('terminal_run_asks_the_desktop_for_a_declared_command_by_id', async () => {
   assert.match(src, /invoke\('pty:run', \{[^}]*command: spec\.id, args: spec\.args/, 'pty:run gets the id and arguments');
 });
 
-test('every_declared_command_that_writes_to_a_cluster_is_marked_to_wait_for_enter_and_no_other_is', () => {
+test('every_declared_command_that_writes_to_a_cluster_is_marked_for_the_desktop_confirmation_and_no_other_is', () => {
   /* kubectl verbs and helm subcommands that change a cluster; the declared table is the only way the terminal runs a command for the person */
   const WRITES = /\bkubectl\s+(?:create|apply|patch|replace|delete|edit|scale|set|label|annotate|rollout\s+(?:restart|undo|pause|resume)|drain|cordon|uncordon|taint|expose|run)\b|\bhelm\s+(?:install|upgrade|uninstall|rollback|delete)\b/;
   const writes = Object.entries(table).filter(([, def]) => WRITES.test(def.template)).map(([id]) => id).sort();
   assert.deepEqual(writes, ['agent.install', 'perm.grant.cluster', 'perm.grant.namespace'], 'the commands that write to a cluster');
-  for (const [id, def] of Object.entries(table)) assert.equal(def.confirm === true, writes.includes(id), `${id}: ${writes.includes(id) ? 'waits for Enter in the terminal' : 'runs as pressed (changes only this computer)'}`);
+  for (const [id, def] of Object.entries(table)) assert.equal(def.confirm === true, writes.includes(id), `${id}: ${writes.includes(id) ? 'waits for the desktop confirmation' : 'runs as pressed (changes only this computer)'}`);
 });

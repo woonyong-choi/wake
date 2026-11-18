@@ -23,9 +23,10 @@
  *       confirmation; quitting again while it is shown (the same ⌘Q) quits.
  * Zoom: tabs:zoom sets a tab page's zoom factor chosen by the shell (per origin, as in the browser) and returns it (an initial request sets it once per internal host and process, see below); tabs:mute mutes a tab's sound.
  * Tint: an external tool tab reports its page tint (the favicon's main color lightened halfway to white) for its pinned tile and context chip.
- * App services: cfg.services (a module path relative to the app folder) exports create({ app, emit, emitTo, safeStorage, userData, hooks }) -> { name: async (args, from, owner) }.
+ * App services: cfg.services (a module path relative to the app folder) exports create({ app, emit, emitTo, safeStorage, userData, hooks, confirm }) -> { name: async (args, from, owner) }.
  *       hooks: main-only functions the module may set (toolHeaders(toolId): headers for a tool tab's own origin, tool-auth.cjs;
- *       commandGuard(id, args): a code string refuses a declared terminal command, null lets it run).
+ *       commandGuard(id, args): a code string refuses a declared terminal command, { env } sets declared environment names, null lets it run).
+ *       confirm({ message, action, detail, vars, text }) -> Promise<bool>: the main process's own OS confirmation (dictionary keys, text as given), for a human gate no page can answer.
  *       The shell and in-app tab pages call them (service:call; never external tool tabs); emit(event, payload) reaches the shell and every
  *       in-app tab (service-event); emitTo(owner, event, payload) reaches only the page document that made the call. The module runs with Node in the main process, so it holds whatever must not live in a page (files, keychain).
  * Security: every view is sandboxed with contextIsolation and no nodeIntegration, preloads expose allowed messages only, permission requests are denied,
@@ -223,24 +224,39 @@ function corsOrigin(scheme, origin) {
 /* a command the terminal runs for the person: only an id the app declares (cfg.commands: { id: { template, args: { name: pattern }, env: [names] } }),
    every argument present, matching its whole pattern and single-quoted into the template; only declared environment names pass.
    guard(id, args) (the app's main-process hook commandGuard) may refuse a well-formed command for what it would do now (a code string): the
-   main process refuses it whatever the page decided, { refused: code } */
+   main process refuses it whatever the page decided, { refused: code }. It may instead answer what the main process resolved for this run:
+   { env?, args?, program?, detail?, cleanup? } — values for declared environment names and arguments (they replace what the page sent; an
+   argument still has to match its pattern), the program's absolute path (it replaces the template's first word), words the confirmation shows
+   ({ $t, vars }), isolate: true (the command runs under env -i with a fixed PATH and HOME and the declared names only) and a function to call
+   once the command ends, is cancelled or is refused. A command the app marks confirm comes back with
+   confirm: true (pty:run asks the person in a native dialog before it starts) */
 function buildCommand(commands, input, guard) {
   const def = commands && typeof input?.command === 'string' && Object.hasOwn(commands, input.command) ? commands[input.command] : null;
   if (!def) return null;
-  const args = input.args && typeof input.args === 'object' && !Array.isArray(input.args) ? input.args : {}, names = Object.keys(def.args || {});
-  if (Object.keys(args).some(key => !names.includes(key)) || names.some(key => typeof args[key] !== 'string' || !new RegExp(`^(?:${def.args[key]})$`).test(args[key]))) return null;
-  let refused = null;
-  try { refused = guard?.(input.command, { ...args }) || null; } catch { refused = 'COMMAND_GUARD_FAILED'; }
-  if (refused) return { refused: typeof refused === 'string' && /^[A-Z_]{1,64}$/.test(refused) ? refused : 'COMMAND_REFUSED' };
-  const env = input.env && typeof input.env === 'object' && !Array.isArray(input.env) ? input.env : {};
-  if (Object.keys(env).some(key => !(def.env || []).includes(key) || typeof env[key] !== 'string')) return null;
-  const quote = value => `'${String(value).replace(/'/g, `'\\''`)}'`, command = def.template.replace(/\{(\w+)\}/g, (_, key) => quote(args[key]));
-  if (def.confirm !== true) return { command, env };
-  /* a command the app marks confirm (it changes something outside this computer) never runs on the press that opened it: the terminal shows
-     it (the shell's line above) and waits for Enter in the terminal; no answer (Ctrl+C, closed input) ends it as cancelled (130) */
-  const notice = String(input.confirmText || 'Press Enter to run. Ctrl+C cancels.').replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, 200);
-  return { command: `printf '\\n%s ' ${quote(notice)}; IFS= read -r _ || exit 130; ${command}`, env, confirm: true };
+  const given = input.args && typeof input.args === 'object' && !Array.isArray(input.args) ? input.args : {}, names = Object.keys(def.args || {});
+  const valid = args => !Object.keys(args).some(key => !names.includes(key)) && names.every(key => typeof args[key] === 'string' && new RegExp(`^(?:${def.args[key]})$`).test(args[key]));
+  if (!valid(given)) return null;
+  let answer = null;
+  try { answer = guard?.(input.command, { ...given }) || null; } catch { answer = 'COMMAND_GUARD_FAILED'; }
+  if (answer && typeof answer !== 'object') return { refused: typeof answer === 'string' && /^[A-Z_]{1,64}$/.test(answer) ? answer : 'COMMAND_REFUSED' };
+  const plain = v => v && typeof v === 'object' && !Array.isArray(v);
+  const cleanup = typeof answer?.cleanup === 'function' ? answer.cleanup : null;
+  const drop = () => { try { cleanup?.(); } catch { /* best effort */ } return null; };
+  if (answer && (!plain(answer) || ['env', 'args'].some(k => k in answer && !plain(answer[k])) || ('program' in answer && (typeof answer.program !== 'string' || !path.isAbsolute(answer.program))))) return drop();
+  const args = { ...given, ...(answer?.args ?? {}) };
+  if (!valid(args)) return drop();
+  const env = { ...(plain(input.env) ? input.env : {}), ...(answer?.env ?? {}) };
+  if (Object.keys(env).some(key => !(def.env || []).includes(key) || typeof env[key] !== 'string')) return drop();
+  const quote = value => `'${String(value).replace(/'/g, `'\\''`)}'`;
+  let command = def.template.replace(/\{(\w+)\}/g, (_, key) => quote(args[key]));
+  if (answer?.program) { const [first] = def.template.split(' '); if (first !== path.basename(answer.program)) return drop(); command = quote(answer.program) + command.slice(first.length); }
+  /* isolate: the command sees only a fixed PATH and HOME and the declared names (env -i), nothing the person's startup files exported */
+  if (answer?.isolate === true) command = `/usr/bin/env -i ${[`PATH=/usr/bin:/bin`, `HOME=${os.homedir()}`, ...Object.entries(env).map(([k, v]) => `${k}=${v}`)].map(quote).join(' ')} ${command}`;
+  const extra = { ...(answer?.detail ? { detail: answer.detail } : {}), ...(cleanup ? { cleanup } : {}) };
+  return def.confirm === true ? { command, env, confirm: true, ...extra } : { command, env, ...extra };
 }
+/* the environment lines a confirmation shows (NAME=value, one per line) */
+const envLines = env => Object.entries(env || {}).map(([k, v]) => `${k}=${v}`).join('\n');
 /* no page or tool in a session gets a device, notification or clipboard-read permission: requests are refused and checks answer no. The one
    check that stays yes is writing plain text to the clipboard (a copy button; Chromium still requires the person's click for it) */
 function lockPermissions(s) {
@@ -765,18 +781,54 @@ function start(cfg, { appRoot, repoRoot }) {
   handle('shell:focus', W => W.shellView.webContents.focus());
   // spell check in the app's pages (setting kit.spellcheck): the app session's checker, on for the shell's text fields too
   handle('spellcheck:set', (W, on) => { spellcheck = !!on; session.fromPartition(`persist:${cfg.appId}`).setSpellCheckerEnabled(spellcheck); });
+  /* a confirmation the main process shows itself (an OS dialog, never a page): no document can answer, skip or word it. message, detail and
+     action are dictionary keys (kit and app locale, filled with vars), text is shown as given below the detail (a command line). Cancel is
+     the first button and the default (Return, Escape and the focused key all cancel: a keystroke meant for another app never allows), so
+     true only when the person presses the action itself. The app's services get it as create({ confirm }) for their own human gates.
+     A var may itself be words ({ $t, vars }) or a list of them (one per line).
+     A review run of a development build (KIT_BACKGROUND=1 with KIT_CONFIRM_LOG=<file>) never puts the dialog in front of the person: it appends
+     what the dialog would show to that file and answers what <file>.answer says (run: the action; anything else or no file: cancel) */
+  let translate = (key, vars) => String(key).replace(/\{(\w+)\}/g, (_, k) => vars?.[k] ?? '');
+  const words = v => (Array.isArray(v) ? v.map(words).join('\n') : v && typeof v === 'object' && typeof v.$t === 'string'
+    ? translate(v.$t, Object.fromEntries(Object.entries(v.vars ?? {}).map(([k, x]) => [k, words(x)]))) : v);
+  async function confirmNative({ message, action, detail, vars: given, text } = {}, W = focused || [...windows][0]) {
+    const vars = Object.fromEntries(Object.entries(given ?? {}).map(([k, v]) => [k, words(v)]));
+    const shown = [detail ? translate(String(detail), vars) : '', typeof text === 'string' ? text : ''].filter(Boolean).join('\n\n');
+    const options = { type: 'warning', message: translate(String(message ?? ''), vars), detail: shown,
+      buttons: [translate('confirm.cancel'), translate(String(action ?? ''), vars)], defaultId: 0, cancelId: 0, noLink: true };
+    const log = process.env.KIT_CONFIRM_LOG;
+    if (log && !app.isPackaged && background.on()) {
+      fs.appendFileSync(log, JSON.stringify({ at: new Date().toISOString(), message: options.message, detail: options.detail, buttons: options.buttons }) + '\n', { mode: 0o600 });
+      let answer = '';
+      try { answer = fs.readFileSync(log + '.answer', 'utf8').trim(); } catch { /* no answer file: cancel */ }
+      return answer === 'run';
+    }
+    const parent = W?.win && !W.win.isDestroyed?.() && !background.on() ? W.win : null;
+    const { response } = await (parent ? dialog.showMessageBox(parent, options) : dialog.showMessageBox(options));
+    return response === 1;
+  }
   // terminal sessions (bottom panel): the shell's own shell process per session, output and command records go back to that window
   let term = null;
   const termOf = () => (term ||= terminals.create({ userData: app.getPath('userData'), remoteConfig: remoteTerminalConfig,
     terminalProgram: (ticket, W, cols, rows) => hooks.terminalProgram?.(ticket, W, cols, rows),
     send: (W, ev, ...a) => windows.has(W) && send(W, ev, ...a) }));
   handle('pty:open', async (W, o) => await termOf().open(o || {}, W));
-  /* the shell names a command the app declared (cfg.commands) and its arguments; a command line written by a document never runs */
+  /* the shell names a command the app declared (cfg.commands) and its arguments; a command line written by a document never runs. A confirm
+     command (it changes something outside this computer) starts only after the person presses run in the main process's own dialog, which
+     shows the exact line and environment as they will run; cancel ends it as TERMINAL_COMMAND_CANCELLED and nothing runs */
   handle('pty:run', (W, o) => {
     const built = buildCommand(cfg.commands, o, hooks.commandGuard);
     if (!built) return { error: 'command not allowed', code: 'TERMINAL_COMMAND_REJECTED' };
     if (built.refused) return { error: 'command refused', code: built.refused };
-    return termOf().run({ id: o.id, mode: o.mode, cols: o.cols, rows: o.rows, cwd: o.cwd, ...built }, W);
+    const run = () => {
+      const r = termOf().run({ id: o.id, mode: o.mode, cols: o.cols, rows: o.rows, cwd: o.cwd, command: built.command, env: built.env, onExit: built.cleanup }, W);
+      if (r?.error) built.cleanup?.();
+      return r;
+    };
+    if (!built.confirm) return run();
+    const text = [built.detail ? words(built.detail) : '', built.command, envLines(built.env)].filter(Boolean).join('\n\n');
+    return confirmNative({ message: 'terminal.confirm.message', action: 'terminal.confirm.run', text }, W)
+      .then(yes => { if (yes) return run(); built.cleanup?.(); return { error: 'command cancelled', code: 'TERMINAL_COMMAND_CANCELLED' }; });
   });
   handle('pty:write', (W, id, data) => termOf().write(id, data, W));
   handle('pty:resize', (W, id, cols, rows) => termOf().resize(id, cols, rows, W));
@@ -1045,7 +1097,7 @@ function start(cfg, { appRoot, repoRoot }) {
       background.present(W.win, { focus: true });
     });
     routes = (await import(pathToFileURL(path.join(appRoot, 'routes.js')).href)).ROUTES;
-    if (cfg.services) services = require(path.join(appRoot, cfg.services)).create({ app, emit: emitService, emitTo: serviceSendTo(windows), safeStorage: require('electron').safeStorage, userData: app.getPath('userData'), hooks, remoteTerminalConfig });
+    if (cfg.services) services = require(path.join(appRoot, cfg.services)).create({ app, emit: emitService, emitTo: serviceSendTo(windows), safeStorage: require('electron').safeStorage, userData: app.getPath('userData'), hooks, remoteTerminalConfig, confirm: options => confirmNative(options) });
     if (services) for (const name of cfg.coalesce || []) if (typeof services[name] === 'function') services[name] = coalesced(name, services[name]);
     const appDef = (await import(pathToFileURL(path.join(appRoot, 'app.config.js')).href)).default;
     /* menu bar words: the app dictionary of the locale in use (kit.locale: 'system' = the first preferred system language the app has);
@@ -1061,6 +1113,7 @@ function start(cfg, { appRoot, repoRoot }) {
     const setLocaleCode = code => { localeCode = code; dict = { ...kitEn, ...(appDef.locales?.[code] || {}) }; };
     setLocaleCode(pickLocale((() => { try { return JSON.parse(settingsText())[LOCALE_KEY]; } catch { return undefined; } })()));
     const t = (key, vars) => (dict[key] ?? key).replace(/\{(\w+)\}/g, (_, k) => vars?.[k] ?? '');
+    translate = t;
     handle('locale:set', (W, code) => { if (appDef.locales?.[code] && code !== localeCode) { setLocaleCode(code); setMenu(); } return localeCode; });
     if (MAC && appIcon && !appIcon.isEmpty() && !app.isPackaged) app.dock.setIcon(appIcon);
     app.setAboutPanelOptions({ applicationName: cfg.name, ...(appIcon && !appIcon.isEmpty() ? { iconPath: path.join(appRoot, cfg.icon) } : {}) });

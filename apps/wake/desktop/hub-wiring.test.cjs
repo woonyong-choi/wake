@@ -31,6 +31,17 @@ test('auto_interpretation_follows_the_saved_setting_and_is_off_by_default', asyn
   assert.equal(runnerOptions.autoInterpret(), false, 'an unreadable setting is off');
 });
 
+test('opening_the_incident_list_of_a_cluster_starts_its_detection_at_once', async t => {
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'wake-hub-wiring-'));
+  t.after(() => fs.rmSync(userData, { recursive: true, force: true }));
+  const read = [];
+  const hub = await createHub({ userData, emit: () => {}, sources: { ...sources, kube: async (id, p) => { read.push([id, p]); return { items: [] }; } }, contexts: () => ['c1', 'c2'], secret: () => null });
+  await hub.incidents({ cluster: 'c1' });
+  for (let i = 0; i < 100 && !read.length; i++) await new Promise(resolve => setTimeout(resolve, 10)); /* well under the 30 s cycle */
+  assert.ok(read.some(([id, p]) => id === 'c1' && p.startsWith('/api/v1/pods')), 'the list read of c1 started a detection pass of c1');
+  assert.ok(!read.some(([id]) => id === 'c2'), 'another cluster is not read');
+});
+
 test('client_rotate_gives_a_new_token_through_the_hub', async t => {
   const { hub } = await open(t);
   const made = hub.client({ op: 'add', name: 'agent', transport: 'mcp', scope: { cluster: 'c1' } });

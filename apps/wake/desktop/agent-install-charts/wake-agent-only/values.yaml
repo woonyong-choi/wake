@@ -1,7 +1,7 @@
 {
   "image": {
     "repository": "ghcr.io/woonyong-choi/wake-agent",
-    "digest": "sha256:5c55e3101bff9502bd801b2d64fa5c4de4221dd6bf0ab71bc08fa5575aa7562b"
+    "digest": "sha256:2878f430d5049a0a9b29c7aafb7ec542b334f94862ac52c9a32658a86c2ebe2c"
   },
   "identity": {
     "clusterId": ""
