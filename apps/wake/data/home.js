@@ -1,6 +1,6 @@
 /*
  * 클러스터 홈과 지표 화면의 자료(순수 함수, 글 없음): 지표 정의, Pod 상태 흐름(namespace → 워크로드 → Pod 상태), 변경 표시(Kubernetes 원본에서),
- * 출처 상태(도구 칩), 이벤트 행을 eventSummary 입력으로. 시뮬레이션 sim-world.js의 podFlow·changesOf와 같은 규칙을 실제 목록 행(kinds.js)에 쓴다.
+ * 출처 상태(도구 칩), 이벤트 행을 eventSummary 입력으로. 시뮬레이션 design/sim/sim-world.js의 podFlow·changesOf와 같은 규칙을 실제 목록 행(kinds.js)에 쓴다.
  * 논리 검사: home.test.mjs
  */
 import { eventSummary, eventRowKey } from './incident-model.js';

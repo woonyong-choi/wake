@@ -81,4 +81,4 @@ Packaging icon: `desktop.config.cjs` `packageIcon` (.icns) goes to the packager;
 
 ## Gallery and layouts
 
-`components.html` (repository root) renders every component in its states with an app's data; `layouts.html` recomposes the same components (panel on the left, reordered sidebar sections, a settings page from another definition).
+`design/gallery/components.html` renders every component in its states with an app's data; `design/gallery/layouts.html` recomposes the same components (panel on the left, reordered sidebar sections, a settings page from another definition).

@@ -14,7 +14,7 @@ export const SCOPE_W = 'calc(var(--space-40) + var(--space-10))';
 export const clusterNameOf = (ctx, id) => { const saved = (ctx.settings?.()['wake.clusters.list'] || []).find(c => c.id === id); return clusterPresentation(saved || { id }).name; };
 export const viewHeader = (icon, title, sub, end) => C.pageHeader.render({ icon, title, sub, size: 'home', ...(end ? { end } : {}) });
 
-/* 클러스터 구역 알약 탭(시뮬레이션 sim.js:211-215 topbar): 홈 · 리소스 · 네트워크 · GitOps · 이벤트 · 로그 · 알림 · 인시던트. 이 여덟 화면의 머리 끝에 두고, 누르면 같은 탭에서 그 구역(앱 동작 wake.view.section) */
+/* 클러스터 구역 알약 탭(시뮬레이션 design/sim/sim.js:211-215 topbar): 홈 · 리소스 · 네트워크 · GitOps · 이벤트 · 로그 · 알림 · 인시던트. 이 여덟 화면의 머리 끝에 두고, 누르면 같은 탭에서 그 구역(앱 동작 wake.view.section) */
 export const SECTIONS = ['home', 'resources', 'network', 'gitops', 'events', 'logs', 'alerts', 'incidents'];
 /* 좁은 칸에서는 줄을 옆으로 스크롤(sim .sim-nav: 글자를 자르지 않음, 고른 탭이 보이게) */
 export const sectionTabs = (t, current) => C.pillTabs.render({ id: 'wake-section', value: current, action: 'wake.view.section', spaced: true,

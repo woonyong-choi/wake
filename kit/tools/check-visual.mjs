@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * Visual regression check: renders the component gallery (components.html) in the browser host, dark and light, and compares every
+ * Visual regression check: renders the component gallery (design/gallery/components.html) in the browser host, dark and light, and compares every
  * gallery box with the committed baseline pictures in kit/tools/visual-baseline/. Controls are also captured with their states forced
  * (hover, focus-visible, active); a tooltip is captured open. Time is fixed and motion is off, so a picture only changes when the look does.
  *
@@ -69,7 +69,7 @@ for (const theme of ['dark', 'light']) {
   await page.clock.setFixedTime(FIXED_TIME);
   await page.addInitScript(() => Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'MacIntel' }));
   await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
-  await page.goto(`${base}/components.html`); await page.waitForTimeout(1200);
+  await page.goto(`${base}/design/gallery/components.html`); await page.waitForTimeout(1200);
   await page.evaluate(t => { document.documentElement.dataset.theme = t; }, theme);
   await page.addStyleTag({ content: '*, *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important; transition-duration: 0s !important; transition-delay: 0s !important; caret-color: transparent !important; }' });
   await page.evaluate(() => document.fonts.ready); await page.waitForTimeout(600);

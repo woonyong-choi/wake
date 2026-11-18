@@ -330,7 +330,7 @@ export function createHomeMonitoring({ cluster, service, available, update, now 
         const windowFrom = Date.parse(from) / 1000, windowTo = Date.parse(to) / 1000, slack = Math.max(Number(request.queryWindow.step) || 0, 60) * 2;
         const partial = Number.isFinite(windowFrom) && Number.isFinite(windowTo) && (firstAt - windowFrom > slack || windowTo - lastAt > slack);
         const collected = partial ? t('wake.overview.collected', { from: hm(firstAt * 1000), to: hm(lastAt * 1000) }) : '';
-        /* the same plate as the simulation's chart in a bar (sim-views.js chart): a widget with no title of its own (the bar's head names it), no face or ring of its own.
+        /* the same plate as the simulation's chart in a bar (design/sim/sim-views.js chart): a widget with no title of its own (the bar's head names it), no face or ring of its own.
            The caption stays: its value is the window's peak over the Node lines, not the bar head's value, and says so */
         return C.chartCard.render({ density: 'compact', widget: true, hideTitle: true, title, legend: showLegend ? legend : undefined,
           caption: [t('wake.overview.periodPeak'), shownValue, collected].filter(Boolean).join(' · '), chart: { ...chart, ...compactAxis, height, kind: 'line', axisUnit: false, bleed: true, fade: true, reading: true, axes: true } });

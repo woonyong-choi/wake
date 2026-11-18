@@ -4,10 +4,10 @@
  * 시나리오는 운영 규모의 세계(sim-world.js) 안에서 일어난다: 감지 전 홈에서 시작하고, 알림이 오면 홈·사이드바·알림에 인시던트가 나타난다.
  * 시계는 1·5·30배로 돌고, 사람의 동작(승인, PR 병합, 조치 완료)을 기다리는 곳에서 멈춘다. 새 부품은 sim-parts.js(승인 전 견본).
  */
-import config from './apps/wake/app.config.js';
-import { bootPage, components as C, html, attachSplitPanes } from './kit/page/index.js';
-import { surfaceKey } from './kit/core/shortcuts.js';
-import { useLocale } from './kit/core/i18n.js';
+import config from '../../apps/wake/app.config.js';
+import { bootPage, components as C, html, attachSplitPanes } from '../../kit/page/index.js';
+import { surfaceKey } from '../../kit/core/shortcuts.js';
+import { useLocale } from '../../kit/core/i18n.js';
 import { SCENARIOS, CADENCE, NEED, MAX, MIN_WINDOWS, CHANGE_LANES, FAIL_WINDOW, ME, MODEL } from './sim-data.js';
 import { T0, hm, hms, ymd, when, dur } from './sim-format.js';
 import { createParts, css as partsCss, KEYS } from './sim-parts.js';
@@ -19,7 +19,7 @@ import { t } from './sim-locale.js';
 import { createReport, reportStore } from './sim-report.js';
 import { mask, maskCount, redactedTotal } from './sim-mask.js';
 import { actionsFor, copyCommands, containersOf } from './sim-gaps.js';
-import { deleteSelectedOp } from './kit/core/report.js';
+import { deleteSelectedOp } from '../../kit/core/report.js';
 import { createSettingsSim } from './sim-settings.js';
 
 const STAGES = ['scope', 'time', 'cause', 'act', 'verify', 'record'].map(id => [id, t('sim.stage.' + id)]);

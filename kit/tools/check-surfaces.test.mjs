@@ -402,7 +402,7 @@ test('glass and radius reading in the page', { skip: !chromium && 'playwright-co
 <div class="${innerClass}" style="${inner}; width: 300px; height: 100px">group</div></div></div></body></html>`;
       const read = async (path, ...a) => { const p = await open(path, html(...a)); const got = await readSurfaces(p); await p.close(); return judge(got); };
       assert.deepEqual(await read('/ok.html', '5.6px', 'background: #111', 'border-bottom: 1px solid #333'), [], 'a page ground and a parted row are not frames');
-      assert.deepEqual(await read('/window.html', '5.6px', 'background: #111; border-radius: 16px', '', 'l-box'), [], 'a miniature window (layouts.html .l-box) is the window, not a frame');
+      assert.deepEqual(await read('/window.html', '5.6px', 'background: #111; border-radius: 16px', '', 'l-box'), [], 'a miniature window (design/gallery/layouts.html .l-box) is the window, not a frame');
       assert.deepEqual(await read('/group.html', '5.6px', '', 'background: #2a2a2a; border-radius: 16.8px; corner-shape: superellipse(1.4)', '', 'sg-card'), [], 'a settings group as a pale face with no border passes');
       assert.match((await read('/group-edge.html', '5.6px', '', 'background: #2a2a2a; border-radius: 16.8px; corner-shape: superellipse(1.4); border: 1px solid #555', '', 'sg-card'))[0], /settings group inside the body card draws a visible border: div\.sg-card/);
       assert.deepEqual(await read('/group-clear.html', '5.6px', '', 'border-radius: 16.8px; corner-shape: superellipse(1.4); border: 1px solid transparent', '', 'sg-card'), [], 'a transparent border is not visible');

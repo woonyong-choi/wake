@@ -486,7 +486,7 @@ D14 메뉴 재생성과 미리보기 캡처
 | T-PERF-02 | PERF-002,012,013 | `kit/desktop/main.cjs`, `main-url.test.cjs` | `node --test kit/desktop/main-url.test.cjs`; 타임아웃·Linux·오류 문서 첫 그림 시험 추가 | 시작·새 창·탭·도구 | T-PERF-01 |
 | T-PERF-03 | PERF-002,003,016 | `kit/shell/shell.js`, `kit/components/app-frame.js`, `kit/page/boot.js`, desktop host | `node --test kit/page/boot.test.mjs kit/shell/hosts/desktop-host.test.mjs kit/shell/tabs.test.mjs`; 입력부터 첫 배치·paint 측정 추가 | 상세·AI·확대·닫기 | T-PERF-01, 셸 소유 해제 |
 | T-PERF-04 | PERF-003,004,015,023,027 | PERF-027의 파일 목록 | 기존 boot·tabs·screen 시험, `node kit/tools/check.mjs --app wake`; 새 sections·popstate·숨은 구역·cache 시험 | 8구역·복원·AI 제어 | T-PERF-01, 라우트·셸·홈 소유 해제 |
-| T-PERF-05 | PERF-001,017 | `apps/wake/pages/cluster-home.js`, `resource-detail.js`, `sim-views.js` | `node --test apps/wake/pages/cluster-home.test.mjs apps/wake/pages/resource-pages.test.mjs`; 상세 최초 판단 추가 | 임계값 왕복·재방문 | T-PERF-01, 홈·상세 소유 해제 |
+| T-PERF-05 | PERF-001,017 | `apps/wake/pages/cluster-home.js`, `resource-detail.js`, `design/sim/sim-views.js` | `node --test apps/wake/pages/cluster-home.test.mjs apps/wake/pages/resource-pages.test.mjs`; 상세 최초 판단 추가 | 임계값 왕복·재방문 | T-PERF-01, 홈·상세 소유 해제 |
 | T-PERF-06 | PERF-001,002,026 | `view-parts.js`, 화면별 페이지, 필요한 기존 kit 부품 | 홈·resource-pages·signal-pages 시험, 뼈대/완성 geometry 검사 추가 | 전 화면 7상태 | T-PERF-01, 부품별 단일 소유 |
 | T-PERF-07 | PERF-006,020 | `kit/components/data-table.js`, 표 관련 시험 | `node --test kit/components/data-table-extras.test.mjs kit/tools/check-surfaces.test.mjs`; 동기 묶음 fit·해제 고정, 실제 강제 layout 비용 측정 잔여 | 좁은 칸·긴 이름·Restarts | 표 소유 해제 |
 | T-PERF-08 | PERF-006,021 | `kit/components/tooltip.js` | 변경 범위·rAF·detached 후보 시험 추가. `node kit/tools/check-states.mjs --app wake` | hover·키보드 전문 | 툴팁 소유 해제 |

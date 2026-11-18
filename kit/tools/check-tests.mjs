@@ -13,7 +13,7 @@ import { spawnSync } from 'node:child_process';
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const walk = (dir, out = []) => { if (!existsSync(dir)) return out; for (const n of readdirSync(dir)) { if (n === 'node_modules' || n.startsWith('.')) continue; const p = join(dir, n); if (statSync(p).isDirectory()) walk(p, out); else if (/\.test\.(mjs|cjs)$/.test(n)) out.push(p); } return out; };
 const walkAll = (dir, out = []) => { if (!existsSync(dir)) return out; for (const n of readdirSync(dir)) { if (n === 'node_modules' || n.startsWith('.')) continue; const p = join(dir, n); if (statSync(p).isDirectory()) walkAll(p, out); else out.push(p); } return out; };
-const files = [...walk(join(repo, 'kit')), ...walk(join(repo, 'apps'))];
+const files = [...walk(join(repo, 'kit')), ...walk(join(repo, 'apps')), ...walk(join(repo, 'design'))];
 /* main-process modules are loaded only by the desktop app: a syntax error there leaves the app without a window, so parse each one here */
 const cjs = [...walkAll(join(repo, 'kit', 'desktop')), ...readdirSync(join(repo, 'apps')).flatMap(a => walkAll(join(repo, 'apps', a, 'desktop')))].filter(p => p.endsWith('.cjs') && !p.includes(`${'/'}vendor${'/'}`));
 function printProcessFailure(result) {

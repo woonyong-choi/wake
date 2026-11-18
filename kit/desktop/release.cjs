@@ -17,7 +17,7 @@ const path = require('node:path');
 
 const ignore = [/^\/kit\/desktop\/debug\.cjs$/, /^\/kit\/tools\//,
   /\.test\.[^/]+$/, /\.(before|diff|orig|rej)$/, // tests and their leftovers (x.test.mjs, x.test.cjs, x.test.mjs.before), patch leftovers
-  /^\/spec\//, /^\/sim(-[^/]+)?\.(js|html)$/, /^\/tr\/[^/]+\.png$/, /\/test-fixtures\//, // specs, the design simulation, review shots, test fixtures
+  /^\/spec\//, /^\/design\//, /^\/tr\/[^/]+\.png$/, /\/test-fixtures\//, // specs, the design pages (simulation, gallery, review), review shots, test fixtures
   /^(?!.*\/brands\/NOTICE\.md$).*\.md$/]; // documents, except the brand notice (third-party marks and their licenses ship with the app)
 
 /* left out of a package on top of ignore: the native helper source (the built window.node ships), the agent source that runs elsewhere

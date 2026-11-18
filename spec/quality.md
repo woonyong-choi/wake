@@ -370,7 +370,7 @@ lab2의 고정 구성은 shop(prod)·shop-dev의 nginx → PostgREST → Postgre
 
 - 목표: → [RULE-SANKEY](rules.md#RULE-SANKEY).
 - 추가 조건: → [RULE-SANKEY](rules.md#RULE-SANKEY).
-- 현재: sankey-review.js:55~76은 승인 비교에 사용할 11개 상황을 정의하고 sankey-review.html에서 해당 모듈을 연다.
+- 현재: design/sankey/sankey-review.js:55~76은 승인 비교에 사용할 11개 상황을 정의하고 design/sankey/sankey-review.html에서 해당 모듈을 연다.
 - 차이: 상황 정의는 있지만 승인 원본과 현재 Electron의 픽셀·경로·hover를 비교하는 저장소 시험은 없다.
 - 고정 장치: 고정 없음 → G-T-07-SANK
 - 출처: D00725, D01020, D01036. 근거: M의 셸 톤 유지 메모:8-12(금지 고유명이 포함된 파일명 생략); D00725,D01020,D01036.; D00872

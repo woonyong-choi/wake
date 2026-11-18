@@ -3,10 +3,10 @@
  * 상황은 위쪽 선택에서 고른다. 상황마다 한 줄 설명과 규칙이 고른 보기(그려진 그래프에서 읽음)를 함께 쓴다. 살아 있는 상황은 3초마다 값이 바뀐다.
  * 홈 흐름과 요청 흐름은 시뮬레이션 자료(sim-world.js)를, 나머지는 같은 모양(namespace → 워크로드 → Pod 상태)의 만든 자료를 쓴다.
  */
-import config from './apps/wake/app.config.js';
-import { bootPage, components as C, html } from './kit/page/index.js';
-import { world, podFlow, requestFlow, POD_STATE_WORDS } from './sim-world.js';
-import { colourOf } from './sim-flows.js';
+import config from '../../apps/wake/app.config.js';
+import { bootPage, components as C, html } from '../../kit/page/index.js';
+import { world, podFlow, requestFlow, POD_STATE_WORDS } from '../sim/sim-world.js';
+import { colourOf } from '../sim/sim-flows.js';
 
 /* Pod 상태(kubectl 원문)와 그 색 */
 const TONE = { Running: 'ok', Succeeded: 'idle', Pending: 'warn', ContainerCreating: 'busy', CrashLoopBackOff: 'fail', OOMKilled: 'fail', ImagePullBackOff: 'fail', Error: 'fail', Evicted: 'warn', Unknown: 'fail', Terminating: 'warn' };

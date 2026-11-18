@@ -135,7 +135,7 @@ export const ONE_FRAME = [
    the outer card's width and 48px tall (controls, pills and rows are smaller or have no face). The settings group's border rule (GROUP_IN_CARD)
    does not use this size filter: every shown group is checked */
 export const CARD_MIN_H = 48;
-/* Boxes that stand for the app window, so the one body card may sit on them: layouts.html draws each layout in a miniature window (.l-box, background --window) */
+/* Boxes that stand for the app window, so the one body card may sit on them: design/gallery/layouts.html draws each layout in a miniature window (.l-box, background --window) */
 export const WINDOW_LIKE = '.l-box';
 /* The one card role allowed inside the body card: the settings group (spec/rules.md#RULE-PANE, --r-panel round face). In the reference app's settings layout
    (polish/decisions.md:35, user decision 2026-11-16 04:15; coordinator decision 2026-11-16) it is a pale face with no border: its face and radius pass,

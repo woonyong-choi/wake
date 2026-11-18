@@ -2,7 +2,7 @@
  * 시뮬레이션의 마스킹 규칙 하나: 앱의 비밀 값 규칙(apps/wake/data/mask.js: 플래그·변수 대입·Authorization·bearer·URL 안 비밀번호)에
  * 로그와 대화에 섞여 오는 비밀 값을 더한다. 보고서·내보내기·AI 입력·로그 내려받기가 모두 이것을 쓴다.
  */
-import { maskSecrets } from './apps/wake/data/mask.js';
+import { maskSecrets } from '../../apps/wake/data/mask.js';
 import { t as L } from './sim-locale.js';
 
 const MARK = L('sim.mask.mark');

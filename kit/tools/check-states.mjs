@@ -4,7 +4,7 @@
  *   node kit/tools/check-states.mjs --app <id>
  * Needs playwright-core (NODE_PATH) and Chromium, like check.mjs.
  *
- * Checks, on the shell, every route page, components.html and layouts.html:
+ * Checks, on the shell, every route page, design/gallery/components.html and design/gallery/layouts.html:
  *  1. motion: hovering each interactive element; every property that changes (background, color, shadow, opacity, transform,
  *     padding, width) must be covered by a transition with a non-zero duration. Elements measured as instant on the reference
  *     (native style rows and top bar buttons, menu items) are listed in INSTANT and are skipped.
@@ -47,7 +47,7 @@
  * 14. theme: choosing light, dark or system (with the OS scheme changing) applies to the shell and every open tab page at once, without a reload;
  *     in desktop mode the shell asks the window for the same theme (theme:set) so the window material follows.
  * 15. corner radii: per role the computed corner radius and corner shape (superellipse factor, 1 = circular) match the role table of spec/rules.md#RULE-PANE
- *     and, for the side tone, the values measured on the reference (RADII in check-surfaces.mjs); the settings body is the one frame of its screen (ONE_FRAME; with it the shell's center card is bare), on the shell (with the composer + menu open), every tab page frame, components.html and layouts.html.
+ *     and, for the side tone, the values measured on the reference (RADII in check-surfaces.mjs); the settings body is the one frame of its screen (ONE_FRAME; with it the shell's center card is bare), on the shell (with the composer + menu open), every tab page frame, design/gallery/components.html and design/gallery/layouts.html.
  */
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -691,7 +691,7 @@ async function floating(where) {
 
 /* Corner radius per role and the one-frame rule: RADII and ONE_FRAME in check-surfaces.mjs (each with its basis) */
 async function galleryReady(page, file) {
-  const mount = file === 'components.html' ? '#page > .g' : '#page > .l';
+  const mount = file === 'design/gallery/components.html' ? '#page > .g' : '#page > .l';
   if (new URL(page.url()).pathname !== `/${file}`) throw new Error(`gallery setup: unexpected URL for ${file}`);
   await page.waitForFunction(selector => {
     const error = document.querySelector('.kit-error');
@@ -715,10 +715,10 @@ async function radii(where) {
   await p.close();
   const examples = config.examples?.params || {};
   const pages = config.routes.filter(r => examples[r.id]).map(r => [`apps/${appId}/pages/${r.page}.html?a=${encodeURIComponent(`${config.scheme}://${r.pattern.split('/').map(x => x.startsWith(':') ? encodeURIComponent(examples[r.id][x.slice(1)]) : x).join('/')}`)}`, `page ${r.id}`]);
-  for (const [page, w] of [['components.html', 'components.html'], ['layouts.html', 'layouts.html'], ...pages]) {
+  for (const [page, w] of [['design/gallery/components.html', 'design/gallery/components.html'], ['design/gallery/layouts.html', 'design/gallery/layouts.html'], ...pages]) {
     const g = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await g.goto(`${base}/${page}`); await g.waitForTimeout(900);
-    if (['components.html', 'layouts.html'].includes(page)) await galleryReady(g, page);
+    if (['design/gallery/components.html', 'design/gallery/layouts.html'].includes(page)) await galleryReady(g, page);
     await read(g.mainFrame(), w);
     await g.close();
   }
@@ -949,7 +949,7 @@ for (const r of config.routes) {
 }
 
 // gallery pages
-for (const g of ['components.html', 'layouts.html']) {
+for (const g of ['design/gallery/components.html', 'design/gallery/layouts.html']) {
   const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   p.on('pageerror', e => fail(g, e.message));
   await p.goto(`${base}/${g}`); await p.waitForTimeout(1200);
@@ -961,8 +961,8 @@ for (const g of ['components.html', 'layouts.html']) {
 // declared motion of kit parts (computed on the gallery page)
 {
   const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  await p.goto(`${base}/components.html`); await p.waitForTimeout(1200);
-  await galleryReady(p, 'components.html');
+  await p.goto(`${base}/design/gallery/components.html`); await p.waitForTimeout(1200);
+  await galleryReady(p, 'design/gallery/components.html');
   const res = await p.evaluate(() => {
     const has = (sel, prop) => { const e = document.querySelector(sel); if (!e) return `${sel} missing`; const cs = getComputedStyle(e); const ok = cs.transitionProperty.split(',').some((t, i) => (t.trim() === prop || t.trim() === 'all') && parseFloat(cs.transitionDuration.split(',')[i % cs.transitionDuration.split(',').length]) > 0); return ok ? null : `${sel} has no ${prop} transition`; };
     return [has('.sw-thumb', 'transform'), has('.pill-ind', 'left'), has('.utab-ind', 'left'), has('.sb-sec-head .chev .wi', 'transform'), has('.tbb', 'padding'), has('.slt', 'background'), has('.acc-body', 'grid-template-rows'), has('.acc-trigger .wi', 'transform'), has('.dsc-body', 'grid-template-rows'), has('.prg > i', 'width')].filter(Boolean);

@@ -6,8 +6,9 @@ const left = p => ignore.some(re => re.test(p));
 
 /* C-13: a package carries the app, not its tests, specs, design simulation, review shots or test fixtures; the brand notice (licenses) ships */
 test('release_leaves_out_tests_spec_simulation_review_shots_and_fixtures_and_keeps_the_brand_notice', () => {
-  for (const p of ['/kit/components/menu.test.mjs', '/apps/demo/desktop/hub.test.cjs', '/sim-engine.test.mjs', '/apps/demo/pages/x.test.mjs.before',
-    '/spec/rules.md', '/spec/check-canonical.py', '/spec/data.csv', '/sim.html', '/sim.js', '/sim-data.js', '/tr/err-dark.png',
+  for (const p of ['/kit/components/menu.test.mjs', '/apps/demo/desktop/hub.test.cjs', '/design/sim/sim-engine.test.mjs', '/apps/demo/pages/x.test.mjs.before',
+    '/spec/rules.md', '/spec/check-canonical.py', '/spec/data.csv', '/design/index.html', '/design/sim/sim.html', '/design/sim/sim.js', '/design/sim/sim-data.js',
+    '/design/gallery/components.html', '/design/gallery/layouts.js', '/design/sankey/sankey-review.html', '/tr/err-dark.png',
     '/apps/demo/test-fixtures/kubeconfig.yaml', '/kit/desktop/debug.cjs', '/kit/tools/check.mjs', '/AGENTS.md']) assert.ok(left(p), `${p} is packaged`);
   for (const p of ['/apps/demo/assets/brands/NOTICE.md', '/apps/demo/app.config.js', '/kit/components/menu.js', '/kit/vendor/echarts/NOTICE', '/apps/demo/pages/scope-box.js']) assert.ok(!left(p), `${p} is left out`);
 });
@@ -25,7 +26,7 @@ function repoFixture(t) {
   for (const f of ['kit/desktop/main.cjs', 'kit/desktop/debug.cjs', 'kit/desktop/native/window.m', 'kit/desktop/native/window.node', 'kit/tools/check.mjs', 'kit/components/menu.js',
     'kit/components/menu.test.mjs', 'kit/package.json', 'kit/README.md', 'kit/.local/x', 'kit/node_modules/x/index.js', 'apps/demo/desktop.cjs', 'apps/demo/package.json',
     'apps/demo/desktop/hub.cjs', 'apps/demo/desktop/hub.test.cjs', 'apps/demo/test-fixtures/k.yaml', 'apps/demo/assets/brands/NOTICE.md', 'apps/demo/agent/agent.mjs',
-    'apps/demo/.pytest_cache/v/x', 'apps/demo/pages/x.js.before', 'apps/other/app.js', 'spec/rules.md', 'sim.html', 'sankey-review.html', 'LICENSE', 'THIRD_PARTY_NOTICES.txt']) {
+    'apps/demo/.pytest_cache/v/x', 'apps/demo/pages/x.js.before', 'apps/other/app.js', 'spec/rules.md', 'design/sim/sim.html', 'design/sankey/sankey-review.html', 'LICENSE', 'THIRD_PARTY_NOTICES.txt']) {
     fs.mkdirSync(path.dirname(path.join(repo, f)), { recursive: true }); fs.writeFileSync(path.join(repo, f), 'x');
   }
   fs.writeFileSync(path.join(repo, 'LICENSE'), APACHE_HEAD); fs.writeFileSync(path.join(repo, 'NOTICE'), 'Demo\nCopyright someone\n');
@@ -80,9 +81,9 @@ test('built_archive_holds_only_the_allow_list_its_package_json_and_runtime_node_
   const ok = ['/package.json', '/kit', '/kit/desktop', '/kit/desktop/main.cjs', '/apps', '/apps/demo', '/apps/demo/desktop.cjs',
     '/node_modules', '/node_modules/node-pty', '/node_modules/node-pty/package.json', '/node_modules/node-pty/lib/index.js'];
   assert.deepEqual(release.asarProblems(ok, files, ['node-pty']), []);
-  const bad = release.asarProblems([...ok, '/spec/rules.md', '/kit/tools/check.mjs', '/apps/demo/desktop/hub.test.cjs', '/sim.html', '/.local/x', '/apps/demo/extra.js',
+  const bad = release.asarProblems([...ok, '/spec/rules.md', '/kit/tools/check.mjs', '/apps/demo/desktop/hub.test.cjs', '/design/sim/sim.html', '/.local/x', '/apps/demo/extra.js',
     '/node_modules/electron-builder/package.json'], files, ['node-pty']);
-  assert.deepEqual(bad, ['/spec/rules.md', '/kit/tools/check.mjs', '/apps/demo/desktop/hub.test.cjs', '/sim.html', '/.local/x', '/apps/demo/extra.js',
+  assert.deepEqual(bad, ['/spec/rules.md', '/kit/tools/check.mjs', '/apps/demo/desktop/hub.test.cjs', '/design/sim/sim.html', '/.local/x', '/apps/demo/extra.js',
     '/node_modules/electron-builder/package.json'].map(p => `${p} is in app.asar but not in the runtime allow-list`));
 });
 

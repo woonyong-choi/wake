@@ -2,10 +2,10 @@
  * 구성 요소 목록 화면: kit 구성 요소를 상태별로 모두 그리고, 아래쪽에서 동작(메뉴, 하위 메뉴, 선택 칸, 스위치, 탭, 접기, 툴팁, 스크롤)을 직접 해 본다.
  * Wake 정의(글자 사전, 아이콘 표, 표본 데이터)로 그린다. 화면은 구성 요소 조합으로만 만든다.
  */
-import config from './apps/wake/app.config.js';
-import { bootPage, components as C, html, raw, localizeMenu } from './kit/page/index.js';
-import { status } from './apps/wake/pages/parts.js';
-import { t as translate } from './kit/page/index.js';
+import config from '../../apps/wake/app.config.js';
+import { bootPage, components as C, html, raw, localizeMenu } from '../../kit/page/index.js';
+import { status } from '../../apps/wake/pages/parts.js';
+import { t as translate } from '../../kit/page/index.js';
 /* 구성 요소 모음의 보기 자료(이 화면 전용, 앱은 읽지 않음) */
 const CLUSTERS = [{ id: 'wake-sample', ctx: 'wake-sample', state: 'ok', kind: 'kind', where: 'wake-sample', version: 'v1.31.2', agent: true, perm: 'read', ns: 'payments' }];
 const CONVERSATIONS = [

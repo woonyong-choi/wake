@@ -15,7 +15,7 @@ import { eventsIn, alertsOf, userImpactOf, errorRate, evidenceSnapshot, evidence
 import { mask, redactedTotal } from './sim-mask.js';
 import { SCRAPE, scrapeFloor, ME, MODEL, NEED, CADENCE, MAX, RECOVERY, linksOf } from './sim-data.js';
 import { verifyCounts, causeStatus } from './sim-engine.js';
-import { applyOp, createState, toMarkdown } from './kit/core/report.js';
+import { applyOp, createState, toMarkdown } from '../../kit/core/report.js';
 import { t as L } from './sim-locale.js';
 
 const num = n => Number(n).toLocaleString('ko-KR');

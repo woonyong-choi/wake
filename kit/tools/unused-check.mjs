@@ -13,9 +13,9 @@
  *     A token is defined at most once per rule block (a second definition silently overrides the first).
  *  4. A class is given base styles (a selector that is the bare class, e.g. `.btn`; modifiers like `.btn.sm` are free) by one component only.
  *  5. Every relative reference (import, require, src, href, url()) resolves to an existing file.
- *  6. Every app locale key under the app prefix is used by the app (or by the root gallery pages): the whole key as written, or a key built
+ *  6. Every app locale key under the app prefix is used by the app (or by the gallery pages in design/): the whole key as written, or a key built
  *     at run time from a written prefix (`'prefix.' + x` or a template `prefix.${x}`). A test file is not a use.
- *  7. Every kit locale key is used outside the locale files (kit, apps or the root gallery pages), with the same two ways. A test file is not a use.
+ *  7. Every kit locale key is used outside the locale files (kit, apps or the gallery pages in design/), with the same two ways. A test file is not a use.
  */
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { resolve, dirname, relative, join, extname, basename, sep } from 'node:path';
@@ -36,7 +36,7 @@ function walk(dir, out = []) {
   return out;
 }
 const files = [...walk(join(repo, 'kit')), ...walk(join(repo, 'apps'))];
-for (const extra of ['index.html', 'components.html', 'components.js', 'layouts.html', 'layouts.js']) if (existsSync(join(repo, extra))) files.push(join(repo, extra));
+for (const extra of ['design/index.html', 'design/gallery/components.html', 'design/gallery/components.js', 'design/gallery/layouts.html', 'design/gallery/layouts.js']) if (existsSync(join(repo, extra))) files.push(join(repo, extra));
 const src = new Map(files.map(f => [f, readFileSync(f, 'utf8')]));
 const problems = [];
 const isTest = f => /\.test\.[cm]?js$/.test(f);
@@ -59,9 +59,9 @@ for (const [a, n] of rawAllowHits) if (n !== 1) problems.push(`kit/tools/raw-all
 
 /* 1b. corner radii come from the role tokens (kit/tokens.css: --r-surface, --r-panel, --r-dialog, --r-control, --r-control-sm, --r-row, --r-chip, --r-mark, --r-pill,
    --r-round, --r-window, --r-favicon): a border-radius is 0, inherit, one of them, a calc of them, or a component's own custom property that is set from them.
-   The sim pages are checked too; the flow graph draws its tiles' corners in its own geometry. */
+   The sim pages (design/sim/) are checked too; the flow graph draws its tiles' corners in its own geometry. */
 const RADIUS_SKIP = [/^kit\/tokens\.css$/, /^kit\/tools\//, /flow-graph\.js$/, /\.cjs$/];
-const radiusFiles = [...files, ...readdirSync(repo).filter(n => /^sim.*\.(js|html)$/.test(n)).map(n => join(repo, n))];
+const radiusFiles = [...files, ...readdirSync(join(repo, 'design/sim')).filter(n => /^sim.*\.(js|html)$/.test(n)).map(n => join(repo, 'design/sim', n))];
 for (const f of radiusFiles) {
   const r = rel(f); if (RADIUS_SKIP.some(x => x.test(r)) || /\.test\./.test(r)) continue;
   const s = src.get(f) ?? readFileSync(f, 'utf8');
@@ -146,7 +146,7 @@ for (const [f, s] of src) {
 for (const id of existsSync(join(repo, 'apps')) ? readdirSync(join(repo, 'apps')) : []) {
   const loc = join(repo, 'apps', id, 'locale');
   if (!existsSync(loc)) continue;
-  const appSrc = [...src].filter(([f]) => !isTest(f) && ((rel(f).startsWith(`apps/${id}/`) && !rel(f).startsWith(`apps/${id}/locale/`)) || !rel(f).includes('/'))).map(([, s]) => stripComments(s)).join('\n');
+  const appSrc = [...src].filter(([f]) => !isTest(f) && ((rel(f).startsWith(`apps/${id}/`) && !rel(f).startsWith(`apps/${id}/locale/`)) || rel(f).startsWith('design/'))).map(([, s]) => stripComments(s)).join('\n');
   for (const lf of readdirSync(loc)) {
     const s = readFileSync(join(loc, lf), 'utf8');
     for (const m of s.matchAll(new RegExp(`['"](${id}\\.[\\w.-]+)['"]\\s*:`, 'g'))) {

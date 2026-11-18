@@ -7,7 +7,10 @@ Wake(Kubernetes 장애 작업대, Electron 데스크톱 앱)의 화면과 그 �
 - `kit/`: 제품과 무관한 공통 틀(토큰, 구성 요소, 셸, 페이지 실행, 데스크톱 호스트, 점검 도구). Wake·Kubernetes 용어와 한국어 문구(kit/locale 밖)를 두지 않는다.
 - `apps/wake/`: Wake 정의와 데이터만(app.config.js, settings-pages.js, data/, pages/, locale/, desktop/). 화면은 kit 구성 요소 호출과 정의 데이터로만 만든다.
 - `apps/sample/`: kit 견본 앱(`kit/tools/create-app.mjs`의 원본).
-- `components.html`, `layouts.html`: kit 구성 요소 모음과 배치 바꾸기(시각 기준·점검 도구가 이 화면을 찍음).
+- `design/`: 앱 밖의 디자인 기준·검수 화면(패키지에 들어가지 않음). `design/index.html`은 앱·구성 요소·배치 화면으로 가는 개발용 첫 화면이다.
+  - `design/gallery/`: `components.html`, `layouts.html`: kit 구성 요소 모음과 배치 바꾸기(시각 기준·점검 도구가 이 화면을 찍음).
+  - `design/sim/`: 디자인 기준 시뮬레이션(`sim.html`, `sim.js`, `sim-*.js`).
+  - `design/sankey/`: 샌키 승인 비교 화면(`sankey-review.html`).
 
 ## 먼저 읽을 것(결정이 있는 곳)
 
@@ -23,7 +26,7 @@ Wake(Kubernetes 장애 작업대, Electron 데스크톱 앱)의 화면과 그 �
 
 ## 실행
 
-- 브라우저: 이 폴더를 HTTP로 열고(`npx -y http-server -p 8080 .` 등) `apps/wake/index.html`. 앱에는 견본 자료가 없다: 서비스 호스트가 없는 브라우저 실행은 클러스터가 없고 각 화면은 빠진 출처의 "연결 안 됨"을 보인다. 화면 검수는 데스크톱에서 실제 클러스터로 한다. 디자인 기준은 앱 밖의 시뮬레이션(`sim.html`)이다.
+- 브라우저: 이 폴더를 HTTP로 열고(`npx -y http-server -p 8080 .` 등) `apps/wake/index.html`. 앱에는 견본 자료가 없다: 서비스 호스트가 없는 브라우저 실행은 클러스터가 없고 각 화면은 빠진 출처의 "연결 안 됨"을 보인다. 화면 검수는 데스크톱에서 실제 클러스터로 한다. 디자인 기준은 앱 밖의 시뮬레이션(`design/sim/sim.html`)이다.
 - 데스크톱: `cd apps/wake && KUBECONFIG=<테스트 kubeconfig> npx -y electron@44.7.2 .`. `~/.kube/config`는 쓰지 않는다. 실제 비밀 값을 넣지 않는다.
 - 검수 실행(사람이 보는 화면을 가리지 않게): `KIT_BACKGROUND=1`과 `--disable-backgrounding-occluded-windows --disable-renderer-backgrounding`을 함께 주면 창이 앞으로 오지 않고(포커스·Dock 없음) 투명·클릭 통과로 뜨며, 화면은 DevTools 프로토콜(`--remote-debugging-port`)로 읽고 찍는다(`kit/desktop/background-run.cjs`).
 - 첫 실행 다시 보기: 데스크톱 개발 실행의 보기 메뉴, 브라우저에서는 설정 저장소(`wake:settings`)의 `kit.firstRun.done`을 지움.

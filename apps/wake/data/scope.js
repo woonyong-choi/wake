@@ -1,5 +1,5 @@
 /*
- * 범위 검색 상자의 관계(spec/screens/common.md#SCR-SEARCH-SCOPE, 시뮬레이션 sim-views.js scope()): 클러스터 화면 여덟이 함께 쓰는 리소스 종류(여럿) · namespace 하나의 범위가
+ * 범위 검색 상자의 관계(spec/screens/common.md#SCR-SEARCH-SCOPE, 시뮬레이션 design/sim/sim-views.js scope()): 클러스터 화면 여덟이 함께 쓰는 리소스 종류(여럿) · namespace 하나의 범위가
  * 각 화면의 행(이벤트의 대상, 알림 라벨, Application이 관리하는 리소스, Service, Pod, 인시던트 대상)과 맞는지.
  * 종류마다 그 종류의 객체와 그 객체가 소유한 것(ownerReferences: Deployment → ReplicaSet → Pod, CronJob → Job → Pod, StatefulSet·DaemonSet·Job·ReplicaSet → Pod),
  * Service는 selector가 고르는 같은 namespace의 Pod, Node는 그 위의 Pod가 범위다. 종류를 여럿 고르면 각 종류가 닿는 것의 합집합이다. 이름이 비슷한 것은 맞추지 않는다(소유 참조만).

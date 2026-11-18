@@ -36,7 +36,7 @@ export const GLOSSARY = {
   home: { ko: '홈', en: 'Home', keys: ['wake.view.home'] },
   summary: { ko: '요약', en: 'Summary', keys: ['wake.home.summary', 'wake.detail.summary'] },
   spec: { ko: '사양', en: 'Spec', keys: [] },
-  /* 검색 칸(결정 2026-11-14, 시뮬레이션 sim-screens.js의 search)과 사이드바·시작 화면·단축키: 동사는 검색 하나, 자리 표시는 "<대상> 검색"("예:" 없음) */
+  /* 검색 칸(결정 2026-11-14, 시뮬레이션 design/sim/sim-screens.js의 search)과 사이드바·시작 화면·단축키: 동사는 검색 하나, 자리 표시는 "<대상> 검색"("예:" 없음) */
   search: { ko: '검색', en: 'Search', keys: ['wake.search', 'wake.s.sc.find'], basis: KO },
   readFailed: { ko: '클러스터 읽기 실패', en: 'Cluster read failed', avoid: ['조회하지 못함'], keys: ['wake.find.c.read'], basis: KO },
   simClusterSearch: { ko: '클러스터 전체 검색', en: 'Search the whole cluster', keys: ['wake.inc.searchCluster'], basis: KO },

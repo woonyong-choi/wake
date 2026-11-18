@@ -1,5 +1,5 @@
 /*
- * 범위 검색 상자(spec/screens/common.md#SCR-SEARCH-SCOPE, 시뮬레이션 sim-views.js scopeBox · scopeHead): 클러스터 화면 여덟(홈 · 리소스 · 네트워크 · GitOps · 이벤트 · 로그 · 알림 · 인시던트)의
+ * 범위 검색 상자(spec/screens/common.md#SCR-SEARCH-SCOPE, 시뮬레이션 design/sim/sim-views.js scopeBox · scopeHead): 클러스터 화면 여덟(홈 · 리소스 · 네트워크 · GitOps · 이벤트 · 로그 · 알림 · 인시던트)의
  * 머리 바로 아래 kit composer 하나(wide, 한 줄): [리소스 종류 ▾][namespace ▾] 글(화면마다 따로, Enter나 실행 단추로 적용) … 실행. 글이 여러 줄일 때만 커진다.
  * 두 고르기는 같은 다중 선택 메뉴(검색, 세 상태 "전체", 체크 · 아이콘 · 이름 · 수)이고 고르는 즉시 여덟 화면이 같은 범위로 적용된다. 아무것도 고르지 않음은 거르지 않음(전부 체크로 보임).
  * 종류는 워크로드 → 네트워크 → 저장소·구성 순서이고, 읽을 수 없는 종류(Secret은 늘: RULE-SECRET, 그 밖은 종류 읽기가 권한 없음이라 한 것)는 끝의 자물쇠 줄로만 남아 고를 수 없다.

@@ -10,12 +10,13 @@ const { chromium } = require('playwright-core');
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.json': 'application/json' };
 
 test('gallery_explicit_dialog_examples_mount_open_and_escape_without_services', async () => {
-  const repo = resolve(process.env.GALLERY_TEST_ROOT || import.meta.dirname);
+  const repo = resolve(process.env.GALLERY_TEST_ROOT || resolve(import.meta.dirname, '../..'));
+  const own = '/design/gallery/components.js';
   const failures = [], serviceRequests = [], pageErrors = [], consoleErrors = [];
   const server = createServer((req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
-    const file = pathname === '/components.js' ? resolve(import.meta.dirname, 'components.js') : resolve(repo, '.' + pathname);
-    if (pathname !== '/components.js' && !file.startsWith(repo + '/')) { res.writeHead(403).end(); return; }
+    const file = pathname === own ? resolve(import.meta.dirname, 'components.js') : resolve(repo, '.' + pathname);
+    if (pathname !== own &&!file.startsWith(repo + '/')) { res.writeHead(403).end(); return; }
     try { res.setHeader('content-type', MIME[extname(file)] || 'application/octet-stream'); res.end(readFileSync(file)); }
     catch { res.writeHead(404).end(); }
   });
@@ -34,7 +35,7 @@ test('gallery_explicit_dialog_examples_mount_open_and_escape_without_services', 
       if (new URL(route.request().url()).origin !== origin) { serviceRequests.push(route.request().url()); return route.abort(); }
       return route.continue();
     });
-    await page.goto(`${origin}/components.html`);
+    await page.goto(`${origin}/design/gallery/components.html`);
     await page.locator('#page > .g [data-c]').first().waitFor();
     assert.equal(await page.locator('.kit-error').count(), 0);
     assert.equal(await page.locator('.dlg-layer.static').count(), 4);

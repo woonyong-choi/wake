@@ -1,5 +1,5 @@
 /* 화면 문구가 완성된 제품의 말인지(결정 D-USR-2026-11-18-7): 개발 중 메모·내부 식별자·상태 원어가 사전 값에 남지 않는다.
- * wake.gallery.*는 저장소의 부품 모음 화면(components.html)용이라 패키지에 들어가지 않아 뺀다. */
+ * wake.gallery.*는 저장소의 부품 모음 화면(design/gallery/components.html)용이라 패키지에 들어가지 않아 뺀다. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import ko from './ko.js';

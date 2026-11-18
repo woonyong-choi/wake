@@ -4,8 +4,8 @@
  *  2. 사이드바 구역 순서를 바꾼 사이드바
  *  3. 다른 정의로 만든 설정 페이지(같은 settings 페이지 종류, 정의만 다름)
  */
-import config from './apps/wake/app.config.js';
-import { bootPage, createSettingsPage, components as C, html } from './kit/page/index.js';
+import config from '../../apps/wake/app.config.js';
+import { bootPage, createSettingsPage, components as C, html } from '../../kit/page/index.js';
 /* 배치 바꾸기의 보기 자료(이 화면 전용, 앱은 읽지 않음) */
 const CLUSTERS = [{ id: 'wake-sample', ctx: 'wake-sample', state: 'ok', kind: 'kind', where: 'wake-sample', version: 'v1.31.2', agent: true, perm: 'read', ns: 'payments' }];
 const CONVERSATIONS = [
